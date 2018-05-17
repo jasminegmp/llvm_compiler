@@ -3,6 +3,12 @@
  * 
  */
 
+/*
+Question
+1. why global variable set that way in sample code? why not just use some C global variable construct?
+
+*/
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -10,28 +16,81 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Type.h"
+
 #include "llvm/IR/Dominators.h"
+/*
 #include "llvm/Analysis/DominanceFrontier.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/ADT/ArrayRef.h"
+#include "llvm/Analysis/LoopInfo.h"*/
 
 using namespace llvm;
 
 namespace {
   struct CS201PathProfiling : public FunctionPass {
-  std::map<std::string,int> opCounter;
-  static char ID;
-  CS201PathProfiling() : FunctionPass(ID) {}
-
+  /*std::map<std::string,int> opCounter;
+  
   void getAnalysisUsage(AnalysisUsage &AU) const{
 	AU.addRequired<LoopInfo>();
 	AU.setPreservesAll();
-  }
+  } */
+  	static char ID;
+    CS201PathProfiling() : FunctionPass(ID) {}
 
 	//----------------------------------
 	bool doInitialization(Module &M) {
+		int bbCounter = 0;
+		bool dom;
+
+		errs() << "\n---------Starting BasicBlockDemo---------\n";
 	
-	  return false;
+		// Loops through functions
+		for (Module::iterator func = M.begin(), y = M.end(); func != y; ++func)
+		{ 
+			errs() << "Function: " << func->getName() <<"\n"; // print out function numbers
+			
+			// First draw dominator tree
+			DominatorTree domtree;
+			domtree.recalculate(*func);
+
+			// Loops through basic blocks
+			for (Function::iterator bb = func->begin(), e=func->end(); bb != e; ++bb)
+			{
+				errs() << "BB " << bbCounter << " addr: "<< BlockAddress::get(bb) <<"\n";
+				bb->dump();	
+				bbCounter += 1;
+				//bb->getTerminator();
+				
+				errs() << "num of successors: " << bb->getTerminator()->getNumSuccessors() <<"\n";
+				
+				// Loops through each successor
+				 for (unsigned int i = 0; i < bb->getTerminator()->getNumSuccessors(); i++)
+				 {
+				 	//errs() << "Succ:" << bb->getTerminator()->getSuccessor(i) <<"\n";
+				 	dom = domtree.dominates(bb->getTerminator(), bb->getTerminator()->getSuccessor(i));
+				 	
+				 	if (dom)
+				 	{
+				 		bb->printAsOperand(errs(), false);
+				 		errs() << " dominates ";
+				 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
+				 		errs() << "\n";
+				 	}
+				 	else
+				 	{
+				 		bb->printAsOperand(errs(), false);
+				 		errs() << " dominates ";
+				 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
+				 		errs() << "\n";
+				 	}
+				 }
+				 errs() << "\n";
+
+			}
+
+
+
+		}
+	
+		return false;
 	}
 
 	//----------------------------------
@@ -41,7 +100,7 @@ namespace {
 	
 	//----------------------------------
 	bool runOnFunction(Function &F) override {
-
+/*
   	// Skeleton from:
 	//https://www.inf.ed.ac.uk/teaching/courses/ct/17-18/slides/llvm-2-writing_pass.pdf
 		
@@ -64,11 +123,6 @@ namespace {
 			}
 			errs() << "Second time." << "\n";
 
-			/* Debug print
-			for (int i = 0; i < bbCounter; i++)
-			{
-				errs() << edge_count[i] << ",";
-			}*/
 			bbCounter = 0;
 			
 		}
@@ -84,6 +138,12 @@ namespace {
 			bb->dump();
 			for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i!=e; i++)
 			{
+				BasicBlock* B = bb;
+				for (auto it = pred_begin(B), et = pred_end(B); it != et; ++it)
+				{
+				  BasicBlock* predecessor = *it;
+				  errs() << "pred" << &predecessor << "\n";
+				}
 				// THIS LEVEL ITERATES THROUGH INSTRUCTIONS
 
 				if (opCounter.find(i->getOpcodeName()) == opCounter.end())
@@ -129,37 +189,17 @@ namespace {
 	errs() << "edge_count contents: \n";
 	for (int i = 0; i < bbCounter; i++)
 	{
-		errs() << edge_count[i] << ",";
+		errs() << edge_count[i] << " ";
 	}
+	errs() << "\n";
 
 	delete edge_count;
-	
+
 	return false;
-
-	  //return true;
-	} // end runOnFunction
-
-
-	/*
-	LoopInfo &LI = getAnalysis<LoopInfo>();
-	int loopCounter = 0;
-	errs()<<F.getName()+"\n";
-	for(LoopInfo::iterator i = LI.begin(), e=LI.end(); i!=e; ++i){
-		Loop *L = *i;
-		int bbCounter = 0;
-		loopCounter++;
-		for(Loop::block_iterator bb = L->block_begin(); bb!= L->block_end(); ++bb){
-			bbCounter+=1;
-		}	
-		errs()<<"Loop ";
-		errs()<<loopCounter;
-		errs()<<":#BBs =";
-		errs()<<bbCounter;
-		errs()<<"\n";
-	}
-	return(false);
 */
 
+	return true;
+	} // end runOnFunction
   };
 }
 
