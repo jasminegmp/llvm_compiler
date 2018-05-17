@@ -33,12 +33,22 @@ namespace {
 	AU.setPreservesAll();
   } */
   	static char ID;
+  	//GlobalVariable *DomSet = NULL;
     CS201PathProfiling() : FunctionPass(ID) {}
 
 	//----------------------------------
 	bool doInitialization(Module &M) {
 		int bbCounter = 0;
+		//LLVMContext *Context;
 		bool dom;
+		//int* DomSet = NULL; 
+		//std::string* DomArray = NULL;
+
+		// never got this one working... but keeping it in for now
+		//DomSet =  new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), false, GlobalValue::InternalLinkage, 0, "DomSet);
+ 	
+     	errs() << "Module: " << M.getName() << "\n";
+ 
 
 		errs() << "\n---------Starting BasicBlockDemo---------\n";
 	
@@ -54,8 +64,11 @@ namespace {
 			// Loops through basic blocks
 			for (Function::iterator bb = func->begin(), e=func->end(); bb != e; ++bb)
 			{
-				errs() << "BB " << bbCounter << " addr: "<< BlockAddress::get(bb) <<"\n";
-				bb->dump();	
+
+				//errs() << "BB " << bbCounter << " addr: "<< BlockAddress::get(bb) <<"\n";
+				errs() << "BasicBlock " << bbCounter <<"\n";
+				bb->printAsOperand(errs(), false);
+				bb->dump();
 				bbCounter += 1;
 				//bb->getTerminator();
 				
@@ -64,31 +77,36 @@ namespace {
 				// Loops through each successor
 				 for (unsigned int i = 0; i < bb->getTerminator()->getNumSuccessors(); i++)
 				 {
+
 				 	//errs() << "Succ:" << bb->getTerminator()->getSuccessor(i) <<"\n";
-				 	dom = domtree.dominates(bb->getTerminator(), bb->getTerminator()->getSuccessor(i));
-				 	
-				 	if (dom)
+				 	dom = domtree.dominates(bb->getTerminator()->getSuccessor(i)->getTerminator(), bb->getFirstInsertionPt());
+				 	errs () << "bool result: " << dom << "\n";
+				 	if (dom) // is a back edge
 				 	{
-				 		bb->printAsOperand(errs(), false);
-				 		errs() << " dominates ";
+				 		errs() << "Found a back edge!";
 				 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
+				 		errs() << " dominates ";
+				 		bb->printAsOperand(errs(), false);
 				 		errs() << "\n";
+						auto backedge = std::make_pair(bb,bb->getTerminator()->getSuccessor(i)); 
+						//errs() << "BACKEDGE" << std::get<0>(backedge) << "\n"; 
 				 	}
-				 	else
+				 	else // is not a back edge
 				 	{
 				 		bb->printAsOperand(errs(), false);
 				 		errs() << " dominates ";
-				 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
+				 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);		 		
 				 		errs() << "\n";
+
 				 	}
 				 }
+
+				 // now go find all loops based off backedge
 				 errs() << "\n";
 
 			}
-
-
-
 		}
+
 	
 		return false;
 	}
