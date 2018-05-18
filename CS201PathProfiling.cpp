@@ -16,6 +16,7 @@ Question
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Type.h"
+#include <stack>
 
 #include "llvm/IR/Dominators.h"
 /*
@@ -26,35 +27,29 @@ using namespace llvm;
 
 namespace {
   struct CS201PathProfiling : public FunctionPass {
-  /*std::map<std::string,int> opCounter;
-  
-  void getAnalysisUsage(AnalysisUsage &AU) const{
-	AU.addRequired<LoopInfo>();
-	AU.setPreservesAll();
-  } */
   	static char ID;
-  	//GlobalVariable *DomSet = NULL;
     CS201PathProfiling() : FunctionPass(ID) {}
 
 	//----------------------------------
 	bool doInitialization(Module &M) {
-		int bbCounter = 0;
-		//LLVMContext *Context;
 		bool dom;
-		//int* DomSet = NULL; 
-		//std::string* DomArray = NULL;
+		std::stack <BasicBlock*> stack;
+		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
+		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
 
 		// never got this one working... but keeping it in for now
 		//DomSet =  new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), false, GlobalValue::InternalLinkage, 0, "DomSet);
  	
      	errs() << "Module: " << M.getName() << "\n";
- 
 
 		errs() << "\n---------Starting BasicBlockDemo---------\n";
 	
 		// Loops through functions
 		for (Module::iterator func = M.begin(), y = M.end(); func != y; ++func)
 		{ 
+			errs() << "\n---------Start of function ---------\n";
+			int bbCounter = 0;
+			int backedge_count = 0;
 			errs() << "Function: " << func->getName() <<"\n"; // print out function numbers
 			
 			// First draw dominator tree
@@ -64,15 +59,12 @@ namespace {
 			// Loops through basic blocks
 			for (Function::iterator bb = func->begin(), e=func->end(); bb != e; ++bb)
 			{
-
-				//errs() << "BB " << bbCounter << " addr: "<< BlockAddress::get(bb) <<"\n";
 				errs() << "BasicBlock " << bbCounter <<"\n";
 				bb->printAsOperand(errs(), false);
 				bb->dump();
 				bbCounter += 1;
-				//bb->getTerminator();
 				
-				errs() << "num of successors: " << bb->getTerminator()->getNumSuccessors() <<"\n";
+				errs() << "Num of successors: " << bb->getTerminator()->getNumSuccessors() <<"\n";
 				
 				// Loops through each successor
 				 for (unsigned int i = 0; i < bb->getTerminator()->getNumSuccessors(); i++)
@@ -81,15 +73,22 @@ namespace {
 				 	//errs() << "Succ:" << bb->getTerminator()->getSuccessor(i) <<"\n";
 				 	dom = domtree.dominates(bb->getTerminator()->getSuccessor(i)->getTerminator(), bb->getFirstInsertionPt());
 				 	errs () << "bool result: " << dom << "\n";
-				 	if (dom) // is a back edge
+				 	if (dom && (bb->getTerminator()->getNumSuccessors() > 0)) // is a back edge
 				 	{
-				 		errs() << "Found a back edge!";
+				 		//errs() << "Found a back edge!";
 				 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
-				 		errs() << " dominates ";
+				 		//errs() << " dominates ";
 				 		bb->printAsOperand(errs(), false);
-				 		errs() << "\n";
-						auto backedge = std::make_pair(bb,bb->getTerminator()->getSuccessor(i)); 
-						//errs() << "BACKEDGE" << std::get<0>(backedge) << "\n"; 
+				 		//errs() << "\n";
+
+				 		// now add back edge onto list of backedges
+				 		// pair is <N, D>
+						backedge_pair = std::make_pair(bb->getTerminator()->getSuccessor(i),bb); 
+
+						backedge_vector.push_back(backedge_pair);
+						backedge_count += 1;
+						
+						//errs() << "-----------VECTOR SIZE:" << backedge_vector.size();
 				 	}
 				 	else // is not a back edge
 				 	{
@@ -99,15 +98,121 @@ namespace {
 				 		errs() << "\n";
 
 				 	}
-				 }
 
-				 // now go find all loops based off backedge
-				 errs() << "\n";
+				 } // end of successor loop
 
+			} // end of basic block loop
+			/*
+			for (int j = 0; j < backedge_count; j++)
+			{
+				errs() << "BACK EDGES ARE: " << backedge_vector[0].first << "\n";
+				errs() << "BACK EDGES ARE: " << backedge_vector[0].second << "\n";
+
+			}*/
+			errs() << "BACK EDGES count: " << backedge_count << "\n";
+
+
+			/*errs() << "--------STACK SIZE" << stack.size();
+			errs() << "\n";*/
+
+			//errs() << "--------TOP OF STACK" << stack.top();
+			//errs() << "\n";
+
+			///////////////// Loop Algorithm //////////////////////////////////////
+			// now go find all loops based off backedge
+
+			// loop through backedge list
+			while(backedge_count--)
+			{
+				// create an empty stack
+				std::stack <BasicBlock*> stack;
+
+				// remember pair is <N,D>
+				// create a loop vector
+				std::vector<BasicBlock*> loop_vector; 
+				// insert D into loop vector
+				loop_vector.push_back(backedge_vector[backedge_count].first);
+
+				// insert n onto stack
+				stack.push(backedge_vector[backedge_count].second);
+				BasicBlock * original_sink = backedge_vector[backedge_count].second;
+				/*
+				errs() << "--------FIRST - TOP OF STACK" << stack.top();
+				errs() << "\n";
+
+				errs() << "--------SECOND - Loop VECTOR" << loop_vector[0];
+				errs() << "\n";*/
+
+				// while stack is not empty
+				while (!stack.empty())
+				{
+					// pop the top element of stack
+					BasicBlock * top_obj = stack.top();
+					stack.pop();
+
+					errs() << "Popped top element of the stack, BB:  ";
+					top_obj->printAsOperand(errs(), false);
+					errs() << "\n";
+
+					// if not in loop vector, insert top obj into stack
+					// referred to this https://stackoverflow.com/questions/571394/how-to-find-out-if-an-item-is-present-in-a-stdvector
+					if (std::find(loop_vector.begin(), loop_vector.end(), top_obj) != loop_vector.end() )
+					{
+						
+					}
+					else
+					{
+						loop_vector.push_back(top_obj);
+					}
+					
+
+					// find all predecessors of the top element of the stack.
+					// referred to this https://stackoverflow.com/questions/21708209/get-predecessors-for-basicblock-in-llvm
+					for (auto it = pred_begin(top_obj), et = pred_end(top_obj); it != et; ++it)
+					{
+						BasicBlock* predecessor = *it;
+						errs() << "predecessor BB:  ";
+						predecessor->printAsOperand(errs(), false);
+						errs() << "\n";
+
+						// if not in loop vector, insert pred into stack
+						// referred to this https://stackoverflow.com/questions/571394/how-to-find-out-if-an-item-is-present-in-a-stdvector
+						if (std::find(loop_vector.begin(), loop_vector.end(), predecessor) != loop_vector.end() )
+						{
+							errs() << "IN LOOP \n";
+						}
+							// do nothing
+						else if (predecessor != original_sink) // make sure also pred != original sink
+						{
+							errs() << "NOT IN LOOP \n";
+							loop_vector.push_back(predecessor);
+							//push pred onto the stack
+							stack.push(predecessor);
+						}
+						else
+						{
+							loop_vector.push_back(predecessor);
+							//push pred onto the stack
+						}
+						
+					}
+				}
+
+
+			// print out loop contents
+			errs() << "/////////////////////////////////\n\n";	
+			errs() << "Loop Found : " << "\n";
+			for (unsigned int i = 0; i < loop_vector.size(); i++)
+			{
+				BasicBlock* loopitem = loop_vector[i];
+				loopitem->printAsOperand(errs(), false);
+				errs() << ",";
 			}
-		}
+			errs() << "\n";
+			} // end of function loop
+			errs() << "/////////////////////////////////\n\n";
 
-	
+	}
 		return false;
 	}
 
