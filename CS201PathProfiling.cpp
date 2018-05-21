@@ -125,21 +125,8 @@ namespace {
 				 } // end of successor loop
 
 			} // end of basic block loop
-			/*
-			for (int j = 0; j < backedge_count; j++)
-			{
-				errs() << "BACK EDGES ARE: " << backedge_vector[0].first << "\n";
-				errs() << "BACK EDGES ARE: " << backedge_vector[0].second << "\n";
 
-			}*/
 			errs() << "BACK EDGES count: " << backedge_count << "\n";
-
-
-			/*errs() << "--------STACK SIZE" << stack.size();
-			errs() << "\n";*/
-
-			//errs() << "--------TOP OF STACK" << stack.top();
-			//errs() << "\n";
 
 			///////////////// Loop Algorithm //////////////////////////////////////
 			// now go find all loops based off backedge
@@ -159,12 +146,6 @@ namespace {
 				// insert n onto stack
 				stack.push(backedge_vector[backedge_count].second);
 				BasicBlock * original_sink = backedge_vector[backedge_count].second;
-				/*
-				errs() << "--------FIRST - TOP OF STACK" << stack.top();
-				errs() << "\n";
-
-				errs() << "--------SECOND - Loop VECTOR" << loop_vector[0];
-				errs() << "\n";*/
 
 				// while stack is not empty
 				while (!stack.empty())
@@ -234,26 +215,18 @@ namespace {
 			errs() << "\n";
 			} // end of function loop
 			errs() << "/////////////////////////////////\n\n";
-/*
-			std::vector<std::pair<BasicBlock*, BasicBlock*>>().swap(backedge_vector);
-			std::vector<std::pair<BasicBlock*, BasicBlock*>>().swap(backedge_vector);
-			std::vector<BasicBlock*>().swap(backedge_vector); 
-
-					std::stack <BasicBlock*> stack;
-			std::pair <BasicBlock*, BasicBlock*> backedge_pair;
-			std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector;*/ 
-			//std::vector<BasicBlock*>().swap(backedge_vector); 
-			//backedge_vector.swap(std::vector<BasicBlock*>());
-
-			//free up everything
-			std::vector<std::pair<BasicBlock*, BasicBlock*>>(backedge_vector).swap(backedge_vector);
-			std::stack <BasicBlock*>(stack).swap(stack);
-			std::pair <BasicBlock*, BasicBlock*>(backedge_pair).swap(backedge_pair);
-
-			//std::vector <BasicBlock*>(loop_vector).swap(loop_vector);
-			//std::vector<BasicBlock*> loop_vector; 
 	}
 	//////////// LOOP END /////////////////////////////
+
+	//////////// EDGE LABEL START /////////////////////////////
+
+	// first find inner most loop
+
+	// run algorithm
+	// first find reverse topological order
+	// go through each vertex in topological order
+
+	//////////// EDGE LABEL END /////////////////////////////
 
 	//////////// EDGE START /////////////////////////////
 
