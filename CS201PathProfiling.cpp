@@ -10,7 +10,6 @@
 #include <stack>
 #include "llvm/IR/Dominators.h"
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/ADT/PostOrderIterator.h"
 
 using namespace llvm;
 using namespace std;
@@ -45,10 +44,92 @@ namespace {
     //FuncNameToEdges is a map from function name(string) to a set of pairs
     map<string, set<pair<string,string>>> FuncNameToEdges;  
 
+    //hash map of edge values
+    map<std::pair<BasicBlock*, BasicBlock*>,int> EdgeValueMap; 
+
+	std::vector<std::vector<BasicBlock*>> topo_loop_vector;
+
+
     CS201Profiling() : FunctionPass(ID) {}
 
 
 //(*BBI)->printAsOperand(errs(), false);
+
+
+    // This function goes and finds the edge profiling
+    void topologicalOrdering(std::vector<std::vector<BasicBlock*>> innerloop_vector)
+    {
+    	
+    	errs() << "Sorting in reverse topological order!\n";
+    	 // debug printing
+
+		// go through each vertex in topological order
+		// NOTE: topological order is kind of kept when finding the loop
+		// but because the loop is created using the back edges, to
+		// keep the topological order, you must start with index 1 to end
+		// and then go back to index 0 
+		// example loop_vector = [2,7,6,5,4], then you start with index 1
+		// to the end, and then back to index 0 to get 7,6,5,4,2
+
+    	// This loops through innerloop vector
+    	for (unsigned int i = 0; i < innerloop_vector.size(); i++)
+		{
+			std::vector<BasicBlock*> temp_vector;
+			// This loops through nested innerloop vecotr
+			for (unsigned int j = 1; j < innerloop_vector[i].size(); j++)
+			{
+				BasicBlock* loopitem = innerloop_vector[i][j];
+				temp_vector.push_back(loopitem);
+				
+				//BasicBlock* loopitem = topo_loop_vector[i][j-1];
+				loopitem->printAsOperand(errs(), false);
+				errs() << ",";
+			} // end nested innerloop vector
+			//topo_loop_vector[i].push_back(innerloop_vector[i][0]);
+			temp_vector.push_back(innerloop_vector[i][0]);
+			topo_loop_vector.push_back(temp_vector);
+		} // end innerloop vector
+
+    }
+
+    // This function goes and finds the edge profiling
+    void findEdgeProfiling(std::vector<std::vector<BasicBlock*>> innerloop_vector)
+    {
+
+    	errs() << "Starting edge weight calculation!\n";
+    	 // debug printing
+
+    	// This loops through innerloop vector
+    	for (unsigned int i = 0; i < innerloop_vector.size(); i++)
+		{
+			// This loops through nested innerloop vecotr
+			for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
+			{
+				BasicBlock* loopitem = innerloop_vector[i][j];
+				loopitem->printAsOperand(errs(), false);
+				errs() << ",";
+			} // end nested innerloop vector
+		} // end innerloop vector
+
+		//this function isn't doing anything right now.
+
+
+    }
+
+    // This is just a helper function for now
+    void printLoopVector(std::vector<BasicBlock*> loop_vector)
+    {
+
+    	errs() << "Got here!\n";
+    	 // debug printing
+    	for (unsigned int i = 0; i < loop_vector.size(); i++)
+		{
+			BasicBlock* loopitem = loop_vector[i];
+			loopitem->printAsOperand(errs(), false);
+			errs() << ",";
+		}
+
+    }
 
     bool doInitialization(Module &M) override 
     {
@@ -149,7 +230,7 @@ namespace {
 				std::vector<BasicBlock*> loop_vector; 
 				// insert D into loop vector
 				loop_vector.push_back(backedge_vector[backedge_count].first);
-
+				
 				// insert n onto stack
 				stack.push(backedge_vector[backedge_count].second);
 				BasicBlock * original_sink = backedge_vector[backedge_count].second;
@@ -182,8 +263,8 @@ namespace {
 					for (auto it = pred_begin(top_obj), et = pred_end(top_obj); it != et; ++it)
 					{
 						BasicBlock* predecessor = *it;
-						errs() << "predecessor BB:  ";
-						predecessor->printAsOperand(errs(), false);
+						//errs() << "predecessor BB:  ";
+						//predecessor->printAsOperand(errs(), false);
 						errs() << "\n";
 
 						// if not in loop vector, insert pred into stack
@@ -208,6 +289,8 @@ namespace {
 						
 					}
 				}
+
+				
 
 			// Now check to see if the loop found is the innermost loop
 			// if of the loop block items found, if it contains another back edge, toss it because it's not the inner one
@@ -234,8 +317,11 @@ namespace {
 			// this is 2 because it must match back edge pair
 			if (temp_backedge_count <= 2)
 			{
-				errs() << "Innermost loop found!" << "\n";
+				//errs() << "Innermost loop found!" << "\n";
 				innerloop_vector.push_back(loop_vector);
+
+				
+				/*// debugging print statements
 				for (unsigned int i = 0; i < innerloop_vector.size(); i++)
 				{
 					for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
@@ -245,6 +331,7 @@ namespace {
 						errs() << ",";
 					}
 				}
+				*/
 			}
 
 			} // end of backedge list
@@ -257,11 +344,8 @@ namespace {
 	errs() << "/////////// EDGE START ///////////////\n\n";
 
 	//////////// EDGE LABEL START /////////////////////////////
-
-
-	// run algorithm on inner most loop
-	// first find reverse topological order
-	// go through each vertex in topological order
+	topologicalOrdering(innerloop_vector);
+	findEdgeProfiling(topo_loop_vector);
 
 	//////////// EDGE LABEL END /////////////////////////////
 
