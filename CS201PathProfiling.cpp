@@ -9,9 +9,12 @@
 #include <set>
 #include <stack>
 #include "llvm/IR/Dominators.h"
+#include "llvm/ADT/SCCIterator.h"
+#include "llvm/ADT/PostOrderIterator.h"
 
 using namespace llvm;
 using namespace std;
+
 
 namespace {
 
@@ -43,23 +46,26 @@ namespace {
     map<string, set<pair<string,string>>> FuncNameToEdges;  
 
     CS201Profiling() : FunctionPass(ID) {}
+
+
+//(*BBI)->printAsOperand(errs(), false);
+
     bool doInitialization(Module &M) override 
     {
-
 		bool dom;
 		std::stack <BasicBlock*> stack;
 		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
 		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
+		std::vector<std::vector<BasicBlock*>> innerloop_vector;
 
-		// never got this one working... but keeping it in for now
-		//DomSet =  new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), false, GlobalValue::InternalLinkage, 0, "DomSet);
- 	
+
      	errs() << "Module: " << M.getName() << "\n";
 
 		errs() << "\n---------Starting BasicBlockDemo---------\n";
 
 
 		//////////// LOOP ALGORITHM START ///////////////////
+
 		// Loops through functions
 		for (Module::iterator func = M.begin(), y = M.end(); func != y; ++func)
 		{ 
@@ -72,13 +78,15 @@ namespace {
 			DominatorTree domtree;
 			errs() << "Function: " << func->getName() << *func <<"\n"; // print out function numbers
 			
-			// hacked this from this source: https://stackoverflow.com/questions/23929468/identifying-user-define-function-through-llvm-pass
+			// hacked this from this source because the printf was giving me a segfault
+			// https://stackoverflow.com/questions/23929468/identifying-user-define-function-through-llvm-pass
 			if(func->size()>0)
 			{
 				domtree.recalculate(*func);
 			}
 			
 			errs() << "Function: " << func->getName() <<"\n"; // print out function numbers
+			
 			// Loops through basic blocks
 			for (Function::iterator bb = func->begin(), e=func->end(); bb != e; ++bb)
 			{
@@ -128,8 +136,7 @@ namespace {
 
 			errs() << "BACK EDGES count: " << backedge_count << "\n";
 
-			///////////////// Loop Algorithm //////////////////////////////////////
-			// now go find all loops based off backedge
+			///////////////// Loop Algorithm from slides ///////////////////////////
 
 			// loop through backedge list
 			while(backedge_count--)
@@ -202,31 +209,64 @@ namespace {
 					}
 				}
 
-
-			// print out loop contents
-			errs() << "/////////////////////////////////\n\n";	
-			errs() << "Loop Found : " << "\n";
+			// Now check to see if the loop found is the innermost loop
+			// if of the loop block items found, if it contains another back edge, toss it because it's not the inner one
+			// for each item in loop vector
+			int temp_backedge_count = 0;
+			BasicBlock* backedge_bb_1;
+			BasicBlock* backedge_bb_2; 
 			for (unsigned int i = 0; i < loop_vector.size(); i++)
 			{
-				BasicBlock* loopitem = loop_vector[i];
-				loopitem->printAsOperand(errs(), false);
-				errs() << ",";
+				BasicBlock* loop_bb = loop_vector[i];
+
+				//check if found basic block in loop exists as a backedge vector
+				for  (unsigned int j = 0; j < backedge_vector.size(); j++)
+				{
+					backedge_bb_1  = backedge_vector[j].first;
+					backedge_bb_2  = backedge_vector[j].second;
+					// must match the backedge pair
+					if(backedge_bb_1 == loop_bb || backedge_bb_2 == loop_bb)
+					{
+						temp_backedge_count += 1;
+					}
+				}
 			}
-			errs() << "\n";
-			} // end of function loop
-			errs() << "/////////////////////////////////\n\n";
-	}
+			// this is 2 because it must match back edge pair
+			if (temp_backedge_count <= 2)
+			{
+				errs() << "Innermost loop found!" << "\n";
+				innerloop_vector.push_back(loop_vector);
+				for (unsigned int i = 0; i < innerloop_vector.size(); i++)
+				{
+					for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
+					{
+						BasicBlock* loopitem = innerloop_vector[i][j];
+						loopitem->printAsOperand(errs(), false);
+						errs() << ",";
+					}
+				}
+			}
+
+			} // end of backedge list
+		
+	}// end of function loop 
+	
 	//////////// LOOP END /////////////////////////////
+
+	errs() << "\n";
+	errs() << "/////////// EDGE START ///////////////\n\n";
 
 	//////////// EDGE LABEL START /////////////////////////////
 
-	// first find inner most loop
 
-	// run algorithm
+	// run algorithm on inner most loop
 	// first find reverse topological order
 	// go through each vertex in topological order
 
 	//////////// EDGE LABEL END /////////////////////////////
+
+	errs() << "\n";
+	errs() << "//////////// EDGE END ///////////////\n\n";
 
 	//////////// EDGE START /////////////////////////////
 
