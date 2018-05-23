@@ -161,7 +161,6 @@ namespace {
     void printLoopVector(std::vector<BasicBlock*> loop_vector)
     {
 
-    	errs() << "Got here!\n";
     	 // debug printing
     	for (unsigned int i = 0; i < loop_vector.size(); i++)
 		{
@@ -246,7 +245,6 @@ namespace {
 	void findBackEdges(Function &func, DominatorTree &domtree, std::pair <BasicBlock*, BasicBlock*> &backedge_pair, std::vector<std::pair<BasicBlock*, BasicBlock*>> &backedge_vector, int &bbCounter, int &backedge_count)
 	{
 		bool dom;
-		
 		
 		// Loops through basic blocks
 		for (Function::iterator bb = func.begin(), e=func.end(); bb != e; ++bb)
@@ -359,12 +357,9 @@ namespace {
 
     bool doInitialization(Module &M) override 
     {
-		std::stack <BasicBlock*> stack;
+/*		std::stack <BasicBlock*> stack;
 		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
 		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
-
-		
-
 
      	errs() << "Module: " << M.getName() << "\n";
 
@@ -438,7 +433,7 @@ namespace {
 	}// end of function loop 
 	
 
-
+*/
 	//////////// EDGE START /////////////////////////////
 
 	Context = &M.getContext();
@@ -510,8 +505,8 @@ namespace {
 
     bool runOnFunction(Function &F) override 
     {
-     	errs() << "Function: " << F.getName() << '\n';
- 	  //	blocks,predecessors,edges,block_ids
+
+		//	blocks,predecessors,edges,block_ids
  	  	//in each function we need to define the string of blocks that exist in each function
  	  	set<string> blocks;//b0,b1,..
 
@@ -523,6 +518,7 @@ namespace {
 
  	  	//we define blocknum as a map from the string name of the block to the block number b0 -> 0
  	  	map<string,int> blocknum;
+     	errs() << "Function: " << F.getName() << '\n';
 
  	  	int i = 0;
  	  	for(auto &bb:F)
@@ -552,23 +548,104 @@ namespace {
  		FuncNameToEdges[F.getName()] = edges;
 
 
+		std::stack <BasicBlock*> stack;
+		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
+		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
+		std::vector<std::vector<BasicBlock*>> innerloop_vector;
+		std::vector<BasicBlock*> loop_vector;
+
+		
+		errs() << "\n---------Start of function ---------\n";
+		int bbCounter = 0;
+		int backedge_count = 0;
+		int tot_backedge = 0;
+		errs() << "Function: " << F.getName() <<"\n"; // print out function numbers
+		
+		// First draw dominator tree
+		DominatorTree domtree;
+		
+		// hacked this from this source because the printf was giving me a segfault
+		// https://stackoverflow.com/questions/23929468/identifying-user-define-function-through-llvm-pass
+		if(F.size()>0)
+		{
+			domtree.recalculate(F);
+		}
+		findBackEdges(F, domtree, backedge_pair, backedge_vector, bbCounter, backedge_count);
+		tot_backedge = backedge_count;
+		errs() << "BACK EDGES count: " << backedge_count << "\n";
+
+		///////////////// Loop Algorithm from slides ///////////////////////////
+
+		// loop through backedge list
+
+		while(backedge_count--)
+		{
+			std::vector<BasicBlock*> loop_vector; 
+
+			loopAlgorithm(backedge_vector, loop_vector, backedge_count);
+			
+			// Now check to see if the loop found is the innermost loop
+			// if of the loop block items found, if it contains another back edge, toss it because it's not the inner one
+			// for each item in loop vector
+			findInnermostLoop(backedge_vector, loop_vector, innerloop_vector);
+
+		} // end of backedge list
+
+		if (tot_backedge > 0)
+		{
+			topologicalOrdering(innerloop_vector);
+			findEdgeProfiling(topo_loop_vector);
+			//std::vector<std::vector<BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
+			//std::vector <BasicBlock*>(loop_vector).swap(loop_vector);
+		}
+		else
+		{
+			errs() << "Edge values:\n";
+			errs() << "{ }";
+		}
+
+		//////////// EDGE LABEL END /////////////////////////////
+
+		errs() << "\n";
+		errs() << "//////////// FUNCTION END ///////////////\n\n";
+		//std::vector<std::pair<BasicBlock*, BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 		
+ 		
+ 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		errs() << "\n";
  		for(auto &BB: F) 
  		{
+        	BB.printAsOperand(errs(), false);
+    	}
+    	errs() << "\n";
+
+    	//for each item in loop, go from top to end, finding 
+
+
+
+    	errs() << "//////////// PRINT END ///////////////\n\n";
+
+ 		for(auto &BB: F) 
+ 		{
+
         //  statement BEFORE calling runOnBasicBlock
         	if(F.getName().equals("main") && isa<ReturnInst>(BB.getTerminator()))
         	{ // major hack?
           		addFinalPrintf(BB);
+
         	}
         	runOnBasicBlock(BB);
     	}
  
+
       return true; // since runOnBasicBlock has modified the program
     }
      //-------------------------
 //---------
     bool runOnBasicBlock(BasicBlock &BB) 
     {
-    	
  
       // Value *loadAddr = IRB.CreateLoad(bbCounter);
       // Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 1), loadAddr);
@@ -576,8 +653,6 @@ namespace {
  
       // for(auto &I: BB)
       //   errs() << I << "\n";
-
-
 
     	//something here not done yet
     	// errs() << "BasicBlock: " << BB.getName() << '\n';
@@ -615,9 +690,6 @@ namespace {
       
 
       builder.CreateStore(blockID, previousBlockID);
-
-
-     
  
       return true;
     }
@@ -639,6 +711,7 @@ namespace {
 
       	int i = 0;
       	IRBuilder<> builder(BB.getTerminator());
+
       	for(auto &edge: edges) {
         
 
