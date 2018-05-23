@@ -10,6 +10,7 @@
 #include <stack>
 #include "llvm/IR/Dominators.h"
 #include "llvm/ADT/SCCIterator.h"
+#include <algorithm>
 
 using namespace llvm;
 using namespace std;
@@ -28,6 +29,7 @@ namespace {
       func->setCallingConv(CallingConv::C);
       return func;
     }
+
     struct CS201Profiling : public FunctionPass 
     {
 
@@ -47,21 +49,89 @@ namespace {
     //hash map of edge values
     map<std::pair<BasicBlock*, BasicBlock*>,int> EdgeValueMap; 
 
+    // nested vector of innermost loops in topological order
 	std::vector<std::vector<BasicBlock*>> topo_loop_vector;
 
 
     CS201Profiling() : FunctionPass(ID) {}
 
-
-//(*BBI)->printAsOperand(errs(), false);
-
-
     // This function goes and finds the edge profiling
+    void findEdgeProfiling(std::vector<std::vector<BasicBlock*>> topo_loop_vector)
+    {
+    	map<BasicBlock*, int> NumPathsMap;
+    	BasicBlock* currentBB;
+
+    	errs() << "Starting edge weight calculation!\n";
+    	
+    	// debug printing
+
+    	// This loops through innerloop vector
+    	for (unsigned int i = 0; i < topo_loop_vector.size(); i++)
+		{
+			// This loops through nested innerloop vecotr
+			for (unsigned int j = 0; j < topo_loop_vector[i].size(); j++)
+			{
+				currentBB = topo_loop_vector[i][j];
+
+				if(j == 0)
+					NumPathsMap[currentBB] = 1;
+				else
+				{
+					NumPathsMap[currentBB] = 0;
+					//go through each success of bb
+					// add to map
+					/*errs() << "Successors\n"; */
+					for (unsigned int k = 0; k < currentBB->getTerminator()->getNumSuccessors(); k++)
+				 	{
+				 		BasicBlock* successorBB = currentBB->getTerminator()->getSuccessor(k);
+				 		if(std::find(topo_loop_vector[i].begin(), topo_loop_vector[i].end(), successorBB) != topo_loop_vector[i].end())
+				 		{
+					 		
+					 		EdgeValueMap[make_pair(currentBB, successorBB)] = NumPathsMap[currentBB];
+					 		
+					 		//successorBB->printAsOperand(errs(), false);
+					 		NumPathsMap[currentBB] = NumPathsMap[currentBB] + NumPathsMap[successorBB];
+					 		//errs() << EdgeValueMap<currentBB, successorBB>;
+				 		}
+
+				 	}
+				}
+				/*
+				errs() << "\nprinting numpaths\n"; 
+				currentBB->printAsOperand(errs(), false);
+				errs() << ":" << NumPathsMap[currentBB] << "\n";*/
+				
+
+			} // end nested innerloop vector
+		} // end innerloop vector
+
+		// following is printing for just debug reasons
+		for(std::map<std::pair<BasicBlock*, BasicBlock*>,int>::iterator iter = EdgeValueMap.begin(); iter != EdgeValueMap.end(); ++iter)
+		{
+			BasicBlock* bb1 = iter->first.first;
+			BasicBlock* bb2 = iter->first.second;
+			int v =  iter->second;
+			errs() << "{";
+			bb1->printAsOperand(errs(), false);
+			//errs() << "->BB2:";
+			errs() << ",";
+			bb2->printAsOperand(errs(), false);
+			errs() << ",";
+			errs() << v;
+			errs() << "}" << "\n";;
+
+		}
+
+		//this function isn't doing anything right now.
+
+    }
+
+    // This function goes and finds the topological ordering of the loop vector
     void topologicalOrdering(std::vector<std::vector<BasicBlock*>> innerloop_vector)
     {
     	
     	errs() << "Sorting in reverse topological order!\n";
-    	 // debug printing
+    	// debug printing
 
 		// go through each vertex in topological order
 		// NOTE: topological order is kind of kept when finding the loop
@@ -80,39 +150,14 @@ namespace {
 			{
 				BasicBlock* loopitem = innerloop_vector[i][j];
 				temp_vector.push_back(loopitem);
-				
 				//BasicBlock* loopitem = topo_loop_vector[i][j-1];
-				loopitem->printAsOperand(errs(), false);
-				errs() << ",";
+				//loopitem->printAsOperand(errs(), false);
+				//errs() << ",";
 			} // end nested innerloop vector
 			//topo_loop_vector[i].push_back(innerloop_vector[i][0]);
 			temp_vector.push_back(innerloop_vector[i][0]);
 			topo_loop_vector.push_back(temp_vector);
 		} // end innerloop vector
-
-    }
-
-    // This function goes and finds the edge profiling
-    void findEdgeProfiling(std::vector<std::vector<BasicBlock*>> innerloop_vector)
-    {
-
-    	errs() << "Starting edge weight calculation!\n";
-    	 // debug printing
-
-    	// This loops through innerloop vector
-    	for (unsigned int i = 0; i < innerloop_vector.size(); i++)
-		{
-			// This loops through nested innerloop vecotr
-			for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
-			{
-				BasicBlock* loopitem = innerloop_vector[i][j];
-				loopitem->printAsOperand(errs(), false);
-				errs() << ",";
-			} // end nested innerloop vector
-		} // end innerloop vector
-
-		//this function isn't doing anything right now.
-
 
     }
 
