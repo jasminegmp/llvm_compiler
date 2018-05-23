@@ -297,15 +297,73 @@ namespace {
 
 	}// END of findBackEdges
 
+	// This code finds the innermost loop
+	void findInnermostLoop(std::vector<std::pair<BasicBlock*, BasicBlock*>> &backedge_vector, std::vector<BasicBlock*> &loop_vector,std::vector<std::vector<BasicBlock*>> &innerloop_vector)
+	{
+		int temp_backedge_count = 0;
+		BasicBlock* backedge_bb_1;
+		BasicBlock* backedge_bb_2;
+
+		errs() << "Innermost Loops:\n";
+		for (unsigned int i = 0; i < loop_vector.size(); i++)
+		{
+			BasicBlock* loop_bb = loop_vector[i];
+
+			//check if found basic block in loop exists as a backedge vector
+			for  (unsigned int j = 0; j < backedge_vector.size(); j++)
+			{
+				backedge_bb_1  = backedge_vector[j].first;
+				backedge_bb_2  = backedge_vector[j].second;
+				// must match the backedge pair
+				if(backedge_bb_1 == loop_bb || backedge_bb_2 == loop_bb)
+				{
+					temp_backedge_count += 1;
+				}
+			}
+		}
+		// this is 2 because it must match back edge pair
+		if (temp_backedge_count <= 2)
+		{
+			//errs() << "Innermost loop found!" << "\n";
+			innerloop_vector.push_back(loop_vector);
+
+			
+			// debugging print statements
+			errs() << "{";
+			for (unsigned int i = 0; i < innerloop_vector.size(); i++)
+			{
+				errs() << "(";
+				for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
+				{
+					BasicBlock* loopitem = innerloop_vector[i][j];
+					loopitem->printAsOperand(errs(), false);
+					if (j != innerloop_vector[i].size()-1)
+					{
+						errs() << ",";
+					}
+				}
+				errs() << ")";
+
+				if (i != innerloop_vector.size()-1)
+				{
+					errs() << ",";
+				}
+
+			}
+			errs() << "}";
+			
+		}
+		errs() << "\n";
+
+	}
 
     bool doInitialization(Module &M) override 
     {
-		
 		std::stack <BasicBlock*> stack;
 		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
 		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
-		std::vector<std::vector<BasicBlock*>> innerloop_vector;
-		std::vector<BasicBlock*> loop_vector;
+
+		
 
 
      	errs() << "Module: " << M.getName() << "\n";
@@ -318,6 +376,9 @@ namespace {
 		// Loops through functions
 		for (Module::iterator func = M.begin(), y = M.end(); func != y; ++func)
 		{ 
+			std::vector<std::vector<BasicBlock*>> innerloop_vector;
+			std::vector<BasicBlock*> loop_vector;
+			
 			errs() << "\n---------Start of function ---------\n";
 			int bbCounter = 0;
 			int backedge_count = 0;
@@ -349,44 +410,7 @@ namespace {
 				// Now check to see if the loop found is the innermost loop
 				// if of the loop block items found, if it contains another back edge, toss it because it's not the inner one
 				// for each item in loop vector
-				int temp_backedge_count = 0;
-				BasicBlock* backedge_bb_1;
-				BasicBlock* backedge_bb_2; 
-				for (unsigned int i = 0; i < loop_vector.size(); i++)
-				{
-					BasicBlock* loop_bb = loop_vector[i];
-
-					//check if found basic block in loop exists as a backedge vector
-					for  (unsigned int j = 0; j < backedge_vector.size(); j++)
-					{
-						backedge_bb_1  = backedge_vector[j].first;
-						backedge_bb_2  = backedge_vector[j].second;
-						// must match the backedge pair
-						if(backedge_bb_1 == loop_bb || backedge_bb_2 == loop_bb)
-						{
-							temp_backedge_count += 1;
-						}
-					}
-				}
-				// this is 2 because it must match back edge pair
-				if (temp_backedge_count <= 2)
-				{
-					//errs() << "Innermost loop found!" << "\n";
-					innerloop_vector.push_back(loop_vector);
-
-					/*
-					// debugging print statements
-					for (unsigned int i = 0; i < innerloop_vector.size(); i++)
-					{
-						for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
-						{
-							BasicBlock* loopitem = innerloop_vector[i][j];
-							loopitem->printAsOperand(errs(), false);
-							errs() << ",";
-						}
-					}*/
-					
-				}
+				findInnermostLoop(backedge_vector, loop_vector, innerloop_vector);
 
 			} // end of backedge list
 
@@ -394,6 +418,8 @@ namespace {
 		{
 			topologicalOrdering(innerloop_vector);
 			findEdgeProfiling(topo_loop_vector);
+			//std::vector<std::vector<BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
+			//std::vector <BasicBlock*>(loop_vector).swap(loop_vector);
 		}
 		else
 		{
@@ -405,6 +431,9 @@ namespace {
 
 		errs() << "\n";
 		errs() << "//////////// FUNCTION END ///////////////\n\n";
+		//std::vector<std::pair<BasicBlock*, BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
+
+
 
 	}// end of function loop 
 	
@@ -658,13 +687,3 @@ namespace {
 
 char CS201Profiling::ID = 0;
 static RegisterPass<CS201Profiling> X("pathProfiling", "CS201Profiling Pass", false, false);
- 	
-
-
-      
-
-
-
-
-
-
