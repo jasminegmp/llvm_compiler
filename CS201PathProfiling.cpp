@@ -54,13 +54,13 @@ namespace {
 
     CS201Profiling() : FunctionPass(ID) {}
 
-    // This function goes and finds the edge profiling
+    // This function goes and finds the edge weights
     void findEdgeProfiling(std::vector<std::vector<BasicBlock*>> topo_loop_vector)
     {
     	map<BasicBlock*, int> NumPathsMap;
     	BasicBlock* currentBB;
 
-    	errs() << "Starting edge weight calculation!\n";
+    	errs() << "Edge values:\n";
     	
     	// debug printing
 
@@ -126,7 +126,7 @@ namespace {
     void topologicalOrdering(std::vector<std::vector<BasicBlock*>> innerloop_vector)
     {
     	
-    	errs() << "Sorting in reverse topological order!\n";
+    	//errs() << "Sorting in reverse topological order!\n";
     	// debug printing
 
 		// go through each vertex in topological order
@@ -256,7 +256,7 @@ namespace {
 			bb->dump();
 			bbCounter += 1;
 			
-			errs() << "Num of successors: " << bb->getTerminator()->getNumSuccessors() <<"\n";
+			//errs() << "Num of successors: " << bb->getTerminator()->getNumSuccessors() <<"\n";
 			
 			// Loops through each successor
 			 for (unsigned int i = 0; i < bb->getTerminator()->getNumSuccessors(); i++)
@@ -264,7 +264,7 @@ namespace {
 
 			 	//errs() << "Succ:" << bb->getTerminator()->getSuccessor(i) <<"\n";
 			 	dom = domtree.dominates(bb->getTerminator()->getSuccessor(i)->getTerminator(), bb->getFirstInsertionPt());
-			 	errs () << "bool result: " << dom << "\n";
+			 	//errs () << "bool result: " << dom << "\n";
 			 	if (dom && (bb->getTerminator()->getNumSuccessors() > 0)) // is a back edge
 			 	{
 			 		//errs() << "Found a back edge!";
@@ -321,6 +321,7 @@ namespace {
 			errs() << "\n---------Start of function ---------\n";
 			int bbCounter = 0;
 			int backedge_count = 0;
+			int tot_backedge = 0;
 			errs() << "Function: " << func->getName() <<"\n"; // print out function numbers
 			
 			// First draw dominator tree
@@ -333,8 +334,8 @@ namespace {
 				domtree.recalculate(*func);
 			}
 			findBackEdges(*func, domtree, backedge_pair, backedge_vector, bbCounter, backedge_count);
-
-			errs() << "BACK EDGES count: " << backedge_count << "\n";
+			tot_backedge = backedge_count;
+			//errs() << "BACK EDGES count: " << backedge_count << "\n";
 
 			///////////////// Loop Algorithm from slides ///////////////////////////
 
@@ -373,7 +374,7 @@ namespace {
 					//errs() << "Innermost loop found!" << "\n";
 					innerloop_vector.push_back(loop_vector);
 
-					
+					/*
 					// debugging print statements
 					for (unsigned int i = 0; i < innerloop_vector.size(); i++)
 					{
@@ -383,27 +384,31 @@ namespace {
 							loopitem->printAsOperand(errs(), false);
 							errs() << ",";
 						}
-					}
+					}*/
 					
 				}
 
 			} // end of backedge list
-		
+
+		if (tot_backedge > 0)
+		{
+			topologicalOrdering(innerloop_vector);
+			findEdgeProfiling(topo_loop_vector);
+		}
+		else
+		{
+			errs() << "Edge values:\n";
+			errs() << "{ }";
+		}
+
+		//////////// EDGE LABEL END /////////////////////////////
+
+		errs() << "\n";
+		errs() << "//////////// FUNCTION END ///////////////\n\n";
+
 	}// end of function loop 
 	
-	//////////// LOOP END /////////////////////////////
 
-	errs() << "\n";
-	errs() << "/////////// EDGE START ///////////////\n\n";
-
-	//////////// EDGE LABEL START /////////////////////////////
-	topologicalOrdering(innerloop_vector);
-	findEdgeProfiling(topo_loop_vector);
-
-	//////////// EDGE LABEL END /////////////////////////////
-
-	errs() << "\n";
-	errs() << "//////////// EDGE END ///////////////\n\n";
 
 	//////////// EDGE START /////////////////////////////
 
