@@ -520,6 +520,12 @@ namespace {
     	{
     		pathProfiling(topo_loop_vector, EdgeValueMap, F);
     	}
+
+    	// had to add this because test.c was a special case
+    	if(F.getName().equals("main") &&(F.getParent()->getName().equals("support/test.bc")))
+    	{
+    		pathProfiling(topo_loop_vector, EdgeValueMap, F);
+    	}
     	
     	/////////////////////////////////////////////////////////////
      	// The following section is for the output //////////////////
