@@ -1,5 +1,5 @@
 // IMPORTANTNOTE: Please change this to a 1 to run edge profiling and a 0 to run path profiling!
-#define EDGE_PROFILING 0
+#define EDGE_PROFILING 1
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
@@ -517,15 +517,20 @@ namespace {
      	// The following section is for path profiling///////////////
      	/////////////////////////////////////////////////////////////
 
-    	if(!(F.getName().equals("main")))
-    	{
-    		pathProfiling(F, EdgeValueMap, topo_loop_vector);
-    	}
-
-    	// had to add this because test.c was a special case where all code was inside main
-    	if(F.getName().equals("main") &&(F.getParent()->getName().equals("support/test.bc")))
-    	{
-    		pathProfiling(F, EdgeValueMap, topo_loop_vector);
+		if (!EDGE_PROFILING)
+		{
+	 		if(!(F.getName().equals("main")))
+	    	{
+	    		pathProfiling(F, EdgeValueMap, topo_loop_vector);
+	    	}
+	    	// had to add this because test.c was a special case where all code was inside main
+	    	else
+	    	{
+	    		if(F.getParent()->getName().equals("support/test.bc"))
+	    		{
+	    			pathProfiling(F, EdgeValueMap, topo_loop_vector);
+	    		}
+	    	}
     	}
     	
     	/////////////////////////////////////////////////////////////
