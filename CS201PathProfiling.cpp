@@ -651,53 +651,18 @@ namespace {
 			IRBuilder<> IRB(endBB->getFirstInsertionPt());
 			
 
-
-			Value* loadAddr = IRB.CreateLoad(bbCounter);
-
-			
-			//IRB.CreateBr(topo_loop_vector[i][tempSize]);
-/*
-			LoadInst* loadArea = new LoadInst(loadAddr, "", false, endBB->getTerminator());
-
-
+			errs() << "got here\n";
+			std::vector<Value*> ptr_arrayidx_indices;
 
 			ConstantInt* const_int64_6 = ConstantInt::get(*Context, APInt(64, StringRef("0"), 10));
-
-			std::vector<Value*> gepIndices(1);
-			gepIndices[0] = const_int64_6;
-
-			BinaryOperator* int32_8 = BinaryOperator::Create(Instruction::Add, loadAddr, const_int64_6, "add", endBB->getTerminator());
-			Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),0),loadAddr);
-
-
-
-
-			CastInst* int64_idxprom = new SExtInst(idxValue, IntegerType::get(*Context, 64), "idxprom", endBB->getTerminator()); // you need to define int32_8 as type of BinaryOperator* with creating a Add instruction for your edge value to be added
-			 
-			std::vector<Value*> ptr_arrayidx_indices;
+			Value* loadAddr = IRB.CreateLoad(bbCounter);
 			ptr_arrayidx_indices.push_back(const_int64_6);
-			ptr_arrayidx_indices.push_back(int64_idxprom);
-			 
+			ptr_arrayidx_indices.push_back(loadAddr);
 			Instruction* ptr_arrayidx = GetElementPtrInst::Create(pathCounter, ptr_arrayidx_indices, "arrayidx", endBB->getTerminator());
-*/
-
-			//Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),0),loadAddr);
-			ConstantInt* initvalue = ConstantInt::get(*Context, APInt(32, StringRef("0"), 10));
-			std::vector<Value*> gepIndices(2);
-			gepIndices[0] = initvalue;
-			gepIndices[1] = loadAddr;
-
-			GetElementPtrInst* pcpointer = GetElementPtrInst::Create(pathCounter,gepIndices,"pcptr",endBB->getTerminator());
-			LoadInst* oldpc = new LoadInst(pcpointer,"oldpc",endBB->getTerminator());
-			Value* newpc = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),1),oldpc);
-			new StoreInst(newpc,pcpointer,endBB->getTerminator());
-
-
-			//Value *loadAddr_2 = IRB.CreateLoad(bbCounter);
-			Value *addAddr_1 = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 0),ConstantInt::get(Type::getInt32Ty(*Context), 0));
-			IRB.CreateStore(addAddr_1, bbCounter);
-			errs() << "\n";
-
+			LoadInst* arrayLoadInstruction = new LoadInst(ptr_arrayidx,"loadAddr",false,endBB->getTerminator());
+			Value* updatedValue = IRB.CreateAdd(arrayLoadInstruction,ConstantInt::get(Type::getInt32Ty(*Context),1));
+			new StoreInst(updatedValue,ptr_arrayidx,endBB->getTerminator());
+			
 
 	}
 
@@ -906,16 +871,15 @@ namespace {
 		    	GlobalVariable *var;
 		        var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, pathConst, "PathStr");
 
-		        // $$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
 			    IRBuilder<> IRB(BB.getTerminator());
+				std::vector<Value*> ptr_arrayidx_indices;
 			    Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),i),ConstantInt::get(Type::getInt32Ty(*Context),0));
-			    std::vector<Value*> gepIndices(2);
-			    ConstantInt* initvalue = ConstantInt::get(*Context, APInt(32, StringRef("0"), 10));
-			    gepIndices[0] = initvalue;
-			    gepIndices[1] = idxValue;
-			    GetElementPtrInst* pcpointer = GetElementPtrInst::Create(pathCounter,gepIndices,"pcptr",BB.getTerminator());
-			    LoadInst* oldpc = new LoadInst(pcpointer,"oldpc",BB.getTerminator());
-			    // $$$$$$$$$$$$$$$$$$$$$$$$$$$$
+			    ConstantInt* const_int64_6 = ConstantInt::get(*Context, APInt(64, StringRef("0"), 10));
+				ptr_arrayidx_indices.push_back(const_int64_6);
+				ptr_arrayidx_indices.push_back(idxValue);
+			    Instruction* ptr_arrayidx = GetElementPtrInst::Create(pathCounter, ptr_arrayidx_indices, "arrayidx", BB.getTerminator());
+			    LoadInst* arrayLoadInstruction = new LoadInst(ptr_arrayidx,"loadAddr",false,BB.getTerminator());
 
 			    std::vector<Constant*> indices;
 			    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
@@ -923,7 +887,7 @@ namespace {
 			    indices.push_back(zero);
 			    Constant *var_ref = ConstantExpr::getGetElementPtr(var, indices);
 			    
-			    CallInst *call = IRB.CreateCall2(printf_func, var_ref, oldpc);
+			    CallInst *call = IRB.CreateCall2(printf_func, var_ref, arrayLoadInstruction);
 		    	call->setTailCall(false);
 	    	}
 
