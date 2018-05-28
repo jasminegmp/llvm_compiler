@@ -1,4 +1,4 @@
-// NOTE: Please change this to a 1 to run edge profiling and a 0 to run path profiling!
+// IMPORTANTNOTE: Please change this to a 1 to run edge profiling and a 0 to run path profiling!
 #define EDGE_PROFILING 0
 
 #include "llvm/Pass.h"
@@ -9,7 +9,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Type.h"
 #include <map>
-#include <set>
 #include <stack>
 #include "llvm/IR/Dominators.h"
 
@@ -150,7 +149,7 @@ namespace {
 
     } // END of topologicalOrdering
 
-    // This algorithm follows the algorithm provided by the powerpoint slides
+    // This algorithm follows the algorithm provided by the powerpoint slides in finding the loops
     // http://www.cs.ucr.edu/~gupta/teaching/201-18/schedule18.html
     void loopAlgorithm(std::vector<std::pair<BasicBlock*, BasicBlock*>> &backedge_vector, std::vector<BasicBlock*> &loop_vector, int backedge_count)
     {
@@ -434,6 +433,8 @@ namespace {
 		}
 		//errs() << "TOTAL PATHS:" << totalNumPaths << "\n";
 
+		// If the number of paths found is greater than 1, create a global array
+		// Otherwise, just use a global variable
 		if (totalNumPaths > 1)
 		{
 			// The following creates a global array
@@ -518,13 +519,13 @@ namespace {
 
     	if(!(F.getName().equals("main")))
     	{
-    		pathProfiling(topo_loop_vector, EdgeValueMap, F);
+    		pathProfiling(F, EdgeValueMap, topo_loop_vector);
     	}
 
-    	// had to add this because test.c was a special case
+    	// had to add this because test.c was a special case where all code was inside main
     	if(F.getName().equals("main") &&(F.getParent()->getName().equals("support/test.bc")))
     	{
-    		pathProfiling(topo_loop_vector, EdgeValueMap, F);
+    		pathProfiling(F, EdgeValueMap, topo_loop_vector);
     	}
     	
     	/////////////////////////////////////////////////////////////
@@ -561,9 +562,7 @@ namespace {
 	          		{
 	          			addFinalPrintfPaths(BB, Context, pathCounterSingle, printf_func);
 	          		}
-
 	        	}
-	        	runOnBasicBlock(BB);
 	    	}
     	}
       return true; // since runOnBasicBlock has modified the program
@@ -571,35 +570,37 @@ namespace {
      //-------------------------
 
     // this is a wrapper function that calls all the necessary functions in order to insert the instrumentation code
-    void pathProfiling (std::vector<std::vector<BasicBlock*>> &topo_loop_vector, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
+    void pathProfiling(Function &F, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap,std::vector<std::vector<BasicBlock*>> &topo_loop_vector)
     {
 
 		unsigned int j = 0;
-		insertBBOnEdge(EdgeValueMap,F);
+
+		// first insert BB on every edge to increment BBCounter, which is based on the weight calculated in the EdgeValueMap
+		insertBBOnEdges(F, EdgeValueMap);
 
 		if (totalNumPaths > 1)
 		{
-			addPathCounterToEndArray(topo_loop_vector[j]);
-			addBBCounterToEnd(topo_loop_vector[j]);// this resets the BBcounter back to 0
+			// Update the global array by indexing to BBCounter and incrementing it by 1
+			addPathCounterToLastBB_Array(topo_loop_vector[j]);
 		}
 		else
 		{
-			addPathCounterToEndSingle(topo_loop_vector[j]);
-			addBBCounterToEnd(topo_loop_vector[j]);// this resets the BBcounter back to 0
+			// Update the global value and incrementing it by 1
+			addPathCounterToLastBB_Single(topo_loop_vector[j]);
 		}
+		// Clear BBCounter at the end of loop to restart increment again in order to find unique path sum
+		clearBBCounterAtLastBB(topo_loop_vector[j]);// this resets the BBcounter back to 0
     }
 
     // This function adds instrumentation code to increment the global array of path counts pathCounter
-    // to the last block of the innermost loop.
+    // to the last BB of the innermost loop.
     // It uses the local sum (bbCounter) in order to figure out where to index in the global array
     // This is used in the case when there is more than 1 path
-	void addPathCounterToEndArray(std::vector<BasicBlock*> &topo_loop_vector_nested)
+	void addPathCounterToLastBB_Array(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-		// Find the last basic block in loop
-		BasicBlock* endBB = topo_loop_vector_nested[0];
-
-		// insert instrumentation code at the end of the loop
-		IRBuilder<> IRB(endBB->getTerminator());
+		// Find the last basic block in loop (topo_loop_vector_nested[0]) and insert
+		// instrumentation code at the end of the loop
+		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
 		std::vector<Value*> ptr_arrayidx_indices;
 
 		ConstantInt* const_int64_6 = ConstantInt::get(*Context, APInt(64, StringRef("0"), 10));
@@ -608,15 +609,15 @@ namespace {
 		Value* loadAddr = IRB.CreateLoad(bbCounter);
 		ptr_arrayidx_indices.push_back(const_int64_6);
 		ptr_arrayidx_indices.push_back(loadAddr);
-		Instruction* ptr_arrayidx = GetElementPtrInst::Create(pathCounter, ptr_arrayidx_indices, "arrayidx", endBB->getTerminator());
-		LoadInst* arrayLoadInstruction = new LoadInst(ptr_arrayidx,"loadAddr",false,endBB->getTerminator());
+		Instruction* ptr_arrayidx = GetElementPtrInst::Create(pathCounter, ptr_arrayidx_indices, "arrayidx", topo_loop_vector_nested[0]->getTerminator());
+		LoadInst* arrayLoadInstruction = new LoadInst(ptr_arrayidx,"loadAddr",false,topo_loop_vector_nested[0]->getTerminator());
 		Value* updatedValue = IRB.CreateAdd(arrayLoadInstruction,ConstantInt::get(Type::getInt32Ty(*Context),1));
-		new StoreInst(updatedValue,ptr_arrayidx,endBB->getTerminator());
+		new StoreInst(updatedValue,ptr_arrayidx,topo_loop_vector_nested[0]->getTerminator());
 	}
 
 	// This function adds instrumentation code to increment the global int pathCounterSingle
 	// This is used in the case when there is exactly 1 total path
-	void addPathCounterToEndSingle(std::vector<BasicBlock*> &topo_loop_vector_nested)
+	void addPathCounterToLastBB_Single(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
 		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
 		Value *loadAddr = IRB.CreateLoad(pathCounterSingle);
@@ -624,17 +625,8 @@ namespace {
 		IRB.CreateStore(addAddr, pathCounterSingle);
 	}
 
-	// This function resets bbCounter back to 0 so that the next time the loop loops back to the top,
-	// it can reinitialize to 0 to create a unique sum at the bottom of the loop again
-	void addBBCounterToEnd(std::vector<BasicBlock*> &topo_loop_vector_nested)
-	{
-		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
-		Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 0),ConstantInt::get(Type::getInt32Ty(*Context), 0));
-		IRB.CreateStore(addAddr, bbCounter);
-	}
-
 	// This inserts a basic block inbetween every edge, adding the edge weight to bbCounter as it traverses down
-	void insertBBOnEdge(std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
+	void insertBBOnEdges(Function &F, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap)
 	{
 		for(std::map<std::pair<BasicBlock*, BasicBlock*>,int>::iterator iter = EdgeValueMap.begin(); iter != EdgeValueMap.end(); ++iter)
 		{
@@ -642,16 +634,19 @@ namespace {
 			BasicBlock* bb1 = iter->first.first; // BB before the new BB
 			BasicBlock* bb2 = iter->first.second; // BB after the new BB
 			
+			// Need to create a basic block for the correct succesor of the first BB
 			for (unsigned int i = 0; i < bb1->getTerminator()->getNumSuccessors(); i++)
 			{
 			    if (bb1->getTerminator()->getSuccessor(i) == bb2) 
 			    {
 			    	// create new BB to insert between the two basic blocks
-			    	BasicBlock* newBB = llvm::BasicBlock::Create(*Context,"",bb2->getParent() ,bb2);
+			    	BasicBlock* newBB = llvm::BasicBlock::Create(*Context,"",&F,  bb2);
 			    	IRBuilder<> IRB(newBB); 
+
 			    	// we must remove the link between the original two basic blocks
 			    	// and then set the successor of the new basic block to the original BB before it.
 					bb1->getTerminator()->setSuccessor(i,newBB);
+
 					// we now create the new instructions to increment the edge weight into the new BB
 					Value *loadAddr = IRB.CreateLoad(bbCounter);
 					Value *addAddr = IRB.CreateAdd(loadAddr, ConstantInt::get(Type::getInt32Ty(*Context), edge));
@@ -661,6 +656,15 @@ namespace {
 			    }
 			}
 		}
+	}
+
+	// This function resets bbCounter back to 0 so that the next time the loop loops back to the top,
+	// it can reinitialize to 0 to create a unique sum at the bottom of the loop again
+	void clearBBCounterAtLastBB(std::vector<BasicBlock*> &topo_loop_vector_nested)
+	{
+		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
+		Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 0),ConstantInt::get(Type::getInt32Ty(*Context), 0));
+		IRB.CreateStore(addAddr, bbCounter);
 	}
 
 	// This function is used to edge profile
@@ -765,6 +769,8 @@ namespace {
 		string output;
 		string pathCount;
 
+		// Printing is different per total number of paths because if number of paths > 1, then it is a global array
+		// otherwise its just a global value
 	    if (totalNumPaths > 1)
 	    {
 	    	for (int i = 0; i < totalNumPaths; i++)
@@ -776,7 +782,7 @@ namespace {
 		    	GlobalVariable *var;
 		        var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, pathConst, "PathStr");
 
-
+		        // This section is the same as when updating the array with the index
 			    IRBuilder<> IRB(BB.getTerminator());
 				std::vector<Value*> ptr_arrayidx_indices;
 			    Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),i),ConstantInt::get(Type::getInt32Ty(*Context),0));
@@ -786,6 +792,7 @@ namespace {
 			    Instruction* ptr_arrayidx = GetElementPtrInst::Create(pathCounter, ptr_arrayidx_indices, "arrayidx", BB.getTerminator());
 			    LoadInst* arrayLoadInstruction = new LoadInst(ptr_arrayidx,"loadAddr",false,BB.getTerminator());
 
+			    // rest of this is normal printing
 			    std::vector<Constant*> indices;
 			    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
 			    indices.push_back(zero);
@@ -808,6 +815,7 @@ namespace {
 		    	GlobalVariable *var;
 		        var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, pathConst, "PathStr");
 
+				// rest of this is normal printing
 				IRBuilder<> builder(BB.getTerminator()); // Insert BEFORE the final statement
 				std::vector<Constant*> indices;
 				Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
@@ -825,7 +833,6 @@ namespace {
  
 };
 }
-    
 
 char CS201Profiling::ID = 0;
 static RegisterPass<CS201Profiling> X("pathProfiling", "CS201Profiling Pass", false, false);
