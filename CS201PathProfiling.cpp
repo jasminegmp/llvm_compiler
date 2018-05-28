@@ -35,23 +35,23 @@ namespace {
     LLVMContext *Context;
     Function *printf_func = NULL;
 
+    // llvm global variables
     GlobalVariable *bbCounter = NULL;
     GlobalVariable *previousBlockID = NULL;
     GlobalVariable *BasicBlockPrintfFormatStr = NULL;
     GlobalVariable *pathCounter = NULL;
     GlobalVariable *pathCounterSingle = NULL;
 
+    // static global variables
     int totalNumPaths;
-    int temp_count;
 
-   
     //FuncNameToBlockNumber is a map from string (function name) to another map which connects to blocknum which is blocks name and their indices :{b0:0,b1:1,..};
     map<string, map<string,int>> FuncNameToBlockNumber;  
+
     //edgeCounter is a map from the function name(string) to the address(string)
     map<string,GlobalVariable*> edgeCounter;  
     //FuncNameToEdges is a map from function name(string) to a set of pairs
     map<string, set<pair<string,string>>> FuncNameToEdges;  
-
     //hash map of edge values
     map<std::pair<BasicBlock*, BasicBlock*>,int> EdgeValueMap; 
 
@@ -59,10 +59,9 @@ namespace {
 	std::vector<std::vector<BasicBlock*>> topo_loop_vector;
 	std::vector<int> totNumPath;
 
-
     CS201Profiling() : FunctionPass(ID) {}
 
-    // This function goes and finds the edge weights
+    // This function finds the edge weights as per the Ball-Larus algorithm in "Efficient path profiling"
     void findEdgeProfiling(std::vector<std::vector<BasicBlock*>> topo_loop_vector)
     {
     	map<BasicBlock*, int> NumPathsMap;
@@ -104,26 +103,15 @@ namespace {
 				 	}
 
 				}
-				//errs() << "J:" << j << "\n";
-				//errs() << "NumPathsMap: " << NumPathsMap[currentBB] << "\n";
-				/*
-				errs() << "\nprinting numpaths\n"; 
-				currentBB->printAsOperand(errs(), false);
-				errs() << ":" << NumPathsMap[currentBB] << "\n";*/
-				
-				// find number of paths
 
 				if (j >= (topo_loop_vector[i].size() - 1))
 				{
-					//errs() << "totNumPath[i]: " << NumPathsMap[currentBB] << "\n";
 					totNumPath.push_back(NumPathsMap[currentBB]);
 				}
 			} // end nested innerloop vector
-			//totNumPath[i] = NumPathsMap[topo_loop_vector[i][0]];
-			
 		} // end innerloop vector
 
-		// following is printing for just debug reasons
+		// following prints the output for the edge values
 		for(std::map<std::pair<BasicBlock*, BasicBlock*>,int>::iterator iter = EdgeValueMap.begin(); iter != EdgeValueMap.end(); ++iter)
 		{
 			BasicBlock* bb1 = iter->first.first;
@@ -139,24 +127,11 @@ namespace {
 			errs() << "}" << "\n";;
 
 		}
-		/*
-		errs() << "path vector output\n";
-		for(unsigned int z = 0; z < totNumPath.size(); z++)
-		{
-
-			errs() << totNumPath[z] << ",";
-
-		}
-		errs() << "\n";	*/
     }// END of findEdgeProfiling
 
-    // This function goes and finds the topological ordering of the loop vector
+    // This function finds the topological ordering of the loop vector
     void topologicalOrdering(std::vector<std::vector<BasicBlock*>> innerloop_vector)
     {
-    	
-    	//errs() << "Sorting in reverse topological order!\n";
-    	// debug printing
-
 		// go through each vertex in topological order
 		// NOTE: topological order is kind of kept when finding the loop
 		// but because the loop is created using the back edges, to
@@ -174,11 +149,7 @@ namespace {
 			{
 				BasicBlock* loopitem = innerloop_vector[i][j];
 				temp_vector.push_back(loopitem);
-				//BasicBlock* loopitem = topo_loop_vector[i][j-1];
-				//loopitem->printAsOperand(errs(), false);
-				//errs() << ",";
 			} // end nested innerloop vector
-			//topo_loop_vector[i].push_back(innerloop_vector[i][0]);
 			temp_vector.push_back(innerloop_vector[i][0]);
 			topo_loop_vector.push_back(temp_vector);
 		} // end innerloop vector
@@ -186,6 +157,7 @@ namespace {
     } // END of topologicalOrdering
 
     // This algorithm follows the algorithm provided by the powerpoint slides
+    // http://www.cs.ucr.edu/~gupta/teaching/201-18/schedule18.html
     void loopAlgorithm(std::vector<std::pair<BasicBlock*, BasicBlock*>> &backedge_vector, std::vector<BasicBlock*> &loop_vector, int backedge_count)
     {
 		// create an empty stack
@@ -206,10 +178,6 @@ namespace {
 			BasicBlock * top_obj = stack.top();
 			stack.pop();
 
-			//errs() << "Popped top element of the stack, BB:  ";
-			//top_obj->printAsOperand(errs(), false);
-			//errs() << "\n";
-
 			// if not in loop vector, insert top obj into stack
 			// referred to this https://stackoverflow.com/questions/571394/how-to-find-out-if-an-item-is-present-in-a-stdvector
 			if (std::find(loop_vector.begin(), loop_vector.end(), top_obj) != loop_vector.end() )
@@ -227,35 +195,28 @@ namespace {
 			for (auto it = pred_begin(top_obj), et = pred_end(top_obj); it != et; ++it)
 			{
 				BasicBlock* predecessor = *it;
-				//errs() << "predecessor BB:  ";
-				//predecessor->printAsOperand(errs(), false);
-				//errs() << "\n";
 
 				// if not in loop vector, insert pred into stack
 				// referred to this https://stackoverflow.com/questions/571394/how-to-find-out-if-an-item-is-present-in-a-stdvector
 				if (std::find(loop_vector.begin(), loop_vector.end(), predecessor) != loop_vector.end() )
 				{
-					//errs() << "IN LOOP \n";
-				}
 					// do nothing
+				}	
 				else if (predecessor != original_sink) // make sure also pred != original sink
 				{
-					//errs() << "NOT IN LOOP \n";
 					loop_vector.push_back(predecessor);
-					//push pred onto the stack
 					stack.push(predecessor);
 				}
 				else
 				{
 					loop_vector.push_back(predecessor);
-					//push pred onto the stack
 				}
 				
 			}
 		}
 	} // END of loopAlgorithm
 
-	// This code finds the back edges
+	// This code finds the back edges by using the dominator tree
 	void findBackEdges(Function &func, DominatorTree &domtree, std::pair <BasicBlock*, BasicBlock*> &backedge_pair, std::vector<std::pair<BasicBlock*, BasicBlock*>> &backedge_vector, int &bbNum, int &backedge_count)
 	{
 		bool dom;
@@ -270,8 +231,6 @@ namespace {
 			bb->dump();
 			bbNum += 1;
 			
-			//errs() << "Num of successors: " << bb->getTerminator()->getNumSuccessors() <<"\n";
-			
 			// Loops through each successor
 			 for (unsigned int i = 0; i < bb->getTerminator()->getNumSuccessors(); i++)
 			 {
@@ -281,11 +240,6 @@ namespace {
 			 	//errs () << "bool result: " << dom << "\n";
 			 	if (dom && (bb->getTerminator()->getNumSuccessors() > 0)) // is a back edge
 			 	{
-			 		//errs() << "Found a back edge!";
-			 		//bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
-			 		//errs() << " dominates ";
-			 		//bb->printAsOperand(errs(), false);
-			 		//errs() << "\n";
 
 			 		// now add back edge onto list of backedges
 			 		// pair is <N, D>
@@ -293,22 +247,9 @@ namespace {
 
 					backedge_vector.push_back(backedge_pair);
 					backedge_count += 1;
-					
-					//errs() << "-----------VECTOR SIZE:" << backedge_vector.size();
 			 	}
-			 	else // is not a back edge
-			 	{
-			 		//bb->printAsOperand(errs(), false);
-			 		//errs() << " dominates ";
-			 		//bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);		 		
-			 		//errs() << "\n";
-
-			 	}
-
 			 } // end of successor loop
-
 		} // end of basic block loop
-
 	}// END of findBackEdges
 
 	// This code finds the innermost loop
@@ -317,7 +258,6 @@ namespace {
 		int temp_backedge_count = 0;
 		BasicBlock* backedge_bb_1;
 		BasicBlock* backedge_bb_2;
-
 		
 		for (unsigned int i = 0; i < loop_vector.size(); i++)
 		{
@@ -345,37 +285,42 @@ namespace {
 
 	}
 
+	// this is run before the function is run
     bool doInitialization(Module &M) override 
     {
 		std::stack <BasicBlock*> stack;
 		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
 		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
      	errs() << "Module: " << M.getName() << "\n";
-		//////////// LOOP ALGORITHM START ///////////////////
+
+     	/////////////////////////////////////////////////////////////
+     	// The following section figures out the innermost loops/////
+     	/////////////////////////////////////////////////////////////
+
 		// Loops through functions
 		for (Module::iterator func = M.begin(), y = M.end(); func != y; ++func)
 		{ 
 			std::vector<std::vector<BasicBlock*>> innerloop_vector;
 			std::vector<BasicBlock*> loop_vector;
-
 			int bbNum = 0;
 			int backedge_count = 0;
 			int tot_backedge = 0;
+
 			errs() << "Function: " << func->getName() <<"\n"; // print out function numbers
 			
 			// First draw dominator tree
 			DominatorTree domtree;
 			
-			// hacked this from this source because the printf was giving me a segfault
+			// Got help from this source because the printf was giving me a segfault
 			// https://stackoverflow.com/questions/23929468/identifying-user-define-function-through-llvm-pass
 			if(func->size()>0)
 			{
 				domtree.recalculate(*func);
 			}
 			findBackEdges(*func, domtree, backedge_pair, backedge_vector, bbNum, backedge_count);
+
 			tot_backedge = backedge_count;
-			//errs() << "BACK EDGES count: " << backedge_count << "\n";
-			///////////////// Loop Algorithm from slides ///////////////////////////
+
 			// loop through backedge list
 			while(backedge_count--)
 			{
@@ -389,8 +334,8 @@ namespace {
 
 			} // end of backedge list
 
+			// output print for innermost loops
 			errs() << "Innermost Loops:\n";
-			// debugging print statements
 			errs() << "{";
 			for (unsigned int i = 0; i < innerloop_vector.size(); i++)
 			{
@@ -415,12 +360,11 @@ namespace {
 				}
 			errs() << "}\n";
 
+			// prints out edge values
 			if (tot_backedge > 0)
 			{
 				topologicalOrdering(innerloop_vector);
 				findEdgeProfiling(topo_loop_vector);
-				//std::vector<std::vector<BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
-				//std::vector <BasicBlock*>(loop_vector).swap(loop_vector);
 			}
 			else
 			{
@@ -429,92 +373,89 @@ namespace {
 			}
 			errs() << "\n";
 		}// end of function loop 
-	
 
+     	/////////////////////////////////////////////////////////////
+     	// The following section is used to set up edge profiling////
+     	/////////////////////////////////////////////////////////////
 
-	//////////// EDGE START /////////////////////////////
+		Context = &M.getContext();
+		printf_func = printf_prototype(*Context, &M);
+		errs() << "\nModule: " << M.getName() << "\n";
 
-	Context = &M.getContext();
-  	printf_func = printf_prototype(*Context, &M);
-  	errs() << "\nModule: " << M.getName() << "\n";
+		//here doInitialization for the name of the blocks
+		for(auto &F:M)
+		{
+			int i = 0;
+			for(auto &bb:F)
+			{
+				if(!bb.hasName())
+				{
+					bb.setName("b" + to_string(i));
+				}
+				i++;
+			}
 
-  	//here doInitialization for the name of the blocks
-  	for(auto &F:M)
-  	{
-  		int i = 0;
-  		for(auto &bb:F)
-  		{
-  	  		if(!bb.hasName())
-  	    		{
-  					bb.setName("b" + to_string(i));
-  				}
-  			i++;
-  		}
-  	
-  		int numberofbasicBlock = i;
-  		//we should create a link between a edgeCounter and context and then in runonbasicblock we should change this edgeCounters variable.
-  	
- 
-  	// Global Variable Declarations
+			int numberofbasicBlock = i;
+			//we should create a link between a edgeCounter and context and then in runonbasicblock we should change this edgeCounters variable.
 
-  	 //https://stackoverflow.com/questions/23330018/llvm-global-integer-array-zeroinitializer
-	// Type Definitions
-	// ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(mod->getContext(), 32), 5);
-	// // Function Declarations
-	// // Global Variable Declarations
-	// GlobalVariable* gvar_array_a = new GlobalVariable(/*Module=*/*mod, 
-	// /*Type=*/ArrayTy_0,
-	// /*isConstant=*/false,
-	// /*Linkage=*/GlobalValue::ExternalLinkage,
-	// /*Initializer=*/0, // has initializer, specified below
-	// /*Name=*/"a");
-	// gvar_array_a->setAlignment(16);
-	// // Constant Definitions
-	// ConstantAggregateZero* const_array_2 = ConstantAggregateZero::get(ArrayTy_0);
+			// Global Variable Declarations
 
-	// // Global Variable Definitions
-	// gvar_array_a->setInitializer(const_array_2);
+			//https://stackoverflow.com/questions/23330018/llvm-global-integer-array-zeroinitializer
+			// Type Definitions
+			// ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(mod->getContext(), 32), 5);
+			// // Function Declarations
+			// // Global Variable Declarations
+			// GlobalVariable* gvar_array_a = new GlobalVariable(/*Module=*/*mod, 
+			// /*Type=*/ArrayTy_0,
+			// /*isConstant=*/false,
+			// /*Linkage=*/GlobalValue::ExternalLinkage,
+			// /*Initializer=*/0, // has initializer, specified below
+			// /*Name=*/"a");
+			// gvar_array_a->setAlignment(16);
+			// // Constant Definitions
+			// ConstantAggregateZero* const_array_2 = ConstantAggregateZero::get(ArrayTy_0);
 
-        ArrayType* ArrayTy_0 = ArrayType::get(ArrayType::get(IntegerType::get(M.getContext(), 32), numberofbasicBlock), numberofbasicBlock);
-        GlobalVariable* gVariable = new GlobalVariable(M, ArrayTy_0, false, GlobalValue::ExternalLinkage, 0, "edgeCounter");
-        ConstantAggregateZero* initValues = ConstantAggregateZero::get(ArrayTy_0);
-        gVariable->setInitializer(initValues);
-        edgeCounter[F.getName()] = gVariable;
+			// // Global Variable Definitions
+			// gvar_array_a->setInitializer(const_array_2);
 
-    }
+			ArrayType* ArrayTy_0 = ArrayType::get(ArrayType::get(IntegerType::get(M.getContext(), 32), numberofbasicBlock), numberofbasicBlock);
+			GlobalVariable* gVariable = new GlobalVariable(M, ArrayTy_0, false, GlobalValue::ExternalLinkage, 0, "edgeCounter");
+			ConstantAggregateZero* initValues = ConstantAggregateZero::get(ArrayTy_0);
+			gVariable->setInitializer(initValues);
+			edgeCounter[F.getName()] = gVariable;
 
-    //bbCounter = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "bbCounter");
-    //previousBlockID should be defined like bbCounter
-    previousBlockID = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "previousBlockID");
-    bbCounter = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "bbCounter");
-	
-	for (unsigned l = 0; l < totNumPath.size(); l++)
-	{
-		totalNumPaths = totNumPath[l];
-	}
-	//errs() << "TOTAL PATHS:" << totalNumPaths << "\n";
+    	}
 
-	if (totalNumPaths > 1)
-	{
-		// The following creates a global array
-		ArrayType* arrayType = ArrayType::get(Type::getInt32Ty(*Context),totalNumPaths);
-		pathCounter = new GlobalVariable(M,arrayType,false,GlobalValue::ExternalLinkage,Constant::getNullValue(arrayType),"pathCounter");
-	}
-	else
-	{
-		pathCounterSingle = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "pathCounterSingle");
-	}
+		previousBlockID = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "previousBlockID");
+		bbCounter = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "bbCounter");
 
-	const char *finalPrintString = "BB Count: %d\n";
-	Constant *format_const = ConstantDataArray::getString(*Context, finalPrintString);
-	BasicBlockPrintfFormatStr = new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, format_const, "BasicBlockPrintfFormatStr");
-	printf_func = printf_prototype(*Context, &M);
-    temp_count = 0;
+		for (unsigned l = 0; l < totNumPath.size(); l++)
+		{
+			totalNumPaths = totNumPath[l];
+		}
+		//errs() << "TOTAL PATHS:" << totalNumPaths << "\n";
 
-    //////////// EDGE END /////////////////////////////
+		if (totalNumPaths > 1)
+		{
+			// The following creates a global array
+			ArrayType* arrayType = ArrayType::get(Type::getInt32Ty(*Context),totalNumPaths);
+			pathCounter = new GlobalVariable(M,arrayType,false,GlobalValue::ExternalLinkage,Constant::getNullValue(arrayType),"pathCounter");
+		}
+		else
+		{
+			pathCounterSingle = new GlobalVariable(M, Type::getInt32Ty(*Context), false, GlobalValue::InternalLinkage, ConstantInt::get(Type::getInt32Ty(*Context), 0), "pathCounterSingle");
+		}
+
+		const char *finalPrintString = "BB Count: %d\n";
+		Constant *format_const = ConstantDataArray::getString(*Context, finalPrintString);
+		BasicBlockPrintfFormatStr = new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, format_const, "BasicBlockPrintfFormatStr");
+		printf_func = printf_prototype(*Context, &M);
+
 
     return true;
+
     }
+
     //----------------------------------
     bool doFinalization(Module &M) 
     {
@@ -523,11 +464,13 @@ namespace {
     }
     
     //----------------------------------
-
+    // the following is run for every function during run time for dynamic analysis
     bool runOnFunction(Function &F) override 
     {
+    	/////////////////////////////////////////////////////////////
+     	// The following section is for edge profiling///////////////
+     	/////////////////////////////////////////////////////////////
     	
-
 		//	blocks,predecessors,edges,block_ids
  	  	//in each function we need to define the string of blocks that exist in each function
  	  	set<string> blocks;//b0,b1,..
@@ -570,16 +513,22 @@ namespace {
  	  	}
  		FuncNameToEdges[F.getName()] = edges;
 
-    	//for each item in loop, go from top to end, finding 
+    	/////////////////////////////////////////////////////////////
+     	// The following section is for path profiling///////////////
+     	/////////////////////////////////////////////////////////////
+
     	if(!(F.getName().equals("main")))
     	{
-    		insertInstrumentationCode(topo_loop_vector, EdgeValueMap, F);
+    		pathProfiling(topo_loop_vector, EdgeValueMap, F);
     	}
     	
+    	/////////////////////////////////////////////////////////////
+     	// The following section is for the output //////////////////
+     	/////////////////////////////////////////////////////////////
+
     	errs() << "Output of profiled program:\n\n"; 
  		for(auto &BB: F) 
  		{
-
         //  statement BEFORE calling runOnBasicBlock
         	if(F.getName().equals("main") && isa<ReturnInst>(BB.getTerminator()))
         	{
@@ -596,16 +545,13 @@ namespace {
 
         	}
         	runOnBasicBlock(BB);
-
-        	
     	}
- 
-
       return true; // since runOnBasicBlock has modified the program
     }
      //-------------------------
 
-    void insertInstrumentationCode (std::vector<std::vector<BasicBlock*>> &topo_loop_vector, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
+    // this is a wrapper function that calls all the necessary functions in order to insert the instrumentation code
+    void pathProfiling (std::vector<std::vector<BasicBlock*>> &topo_loop_vector, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
     {
     	//for (unsigned int j = 0; j < topo_loop_vector.size(); j++)
 		//{
@@ -632,28 +578,13 @@ namespace {
 		//}
     }
 
+    // this function adds the global array to the last block of the innermost loop
+    // it then uses the local sum (bbCounter) in order to figure out where to index in the global array
 	void addPathCounterToEndArray(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-
-
-
-			//int tempSize = topo_loop_vector_nested.size()-1;
-			/*
-	    	errs() << "\n";
-	    	errs() << "end added:\n";
-	    	topo_loop_vector[0]->printAsOperand(errs(), false);
-	    	errs() << "\n";
-	    	errs() << "\n";
-	    	errs() << "beginning branch added:\n";
-	    	topo_loop_vector_nested[tempSize]->printAsOperand(errs(), false);
-	    	*/
 			BasicBlock* endBB = topo_loop_vector_nested[0];
 			IRBuilder<> IRB(endBB->getFirstInsertionPt());
-			
-
-			errs() << "got here\n";
 			std::vector<Value*> ptr_arrayidx_indices;
-
 			ConstantInt* const_int64_6 = ConstantInt::get(*Context, APInt(64, StringRef("0"), 10));
 			Value* loadAddr = IRB.CreateLoad(bbCounter);
 			ptr_arrayidx_indices.push_back(const_int64_6);
@@ -662,75 +593,42 @@ namespace {
 			LoadInst* arrayLoadInstruction = new LoadInst(ptr_arrayidx,"loadAddr",false,endBB->getTerminator());
 			Value* updatedValue = IRB.CreateAdd(arrayLoadInstruction,ConstantInt::get(Type::getInt32Ty(*Context),1));
 			new StoreInst(updatedValue,ptr_arrayidx,endBB->getTerminator());
-			
-
 	}
 
 	void addPathCounterToEndSingle(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-		//errs() << "got to addBBCounterToEnd\n";
-		//topo_loop_vector_nested[0]->printAsOperand(errs(), false);
 		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
-		//Value *loadAddr = IRB.CreateLoad(bbCounter);
 		Value *loadAddr = IRB.CreateLoad(pathCounterSingle);
-		//Value *loadAddr_2 = IRB.CreateLoad(bbCounter);
 		Value *addAddr = IRB.CreateAdd(loadAddr, ConstantInt::get(Type::getInt32Ty(*Context), 1));
 		IRB.CreateStore(addAddr, pathCounterSingle);
-		//errs() << "\n";
-
-
 	}
 
 	void addBBCounterToEnd(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-
-		//errs() << "\n";
-		//topo_loop_vector_nested[0]->printAsOperand(errs(), false);
 		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
-		//Value *loadAddr = IRB.CreateLoad(bbCounter);
 		Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 0),ConstantInt::get(Type::getInt32Ty(*Context), 0));
 		IRB.CreateStore(addAddr, bbCounter);
-		//errs() << "\n";
-
 	}
 
 	void insertBB(std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
 	{
 		for(std::map<std::pair<BasicBlock*, BasicBlock*>,int>::iterator iter = EdgeValueMap.begin(); iter != EdgeValueMap.end(); ++iter)
 		{
+			int edge = iter->second;
 			BasicBlock* bb1 = iter->first.first;
 			BasicBlock* bb2 = iter->first.second;
-
-			int edge = iter->second;
-
-			//errs() << "\nnew temp\n";
 			
-			for (unsigned i = 0, e = bb1->getTerminator()->getNumSuccessors(); i != e; ++i)
+			for (unsigned int j = 0; j < bb1->getTerminator()->getNumSuccessors(); j++)
 			{
-				//errs() << "\nFound successors...\n";
-				//bb1->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
-
-			    if (bb1->getTerminator()->getSuccessor(i) == bb2) 
+			    if (bb1->getTerminator()->getSuccessor(j) == bb2) 
 			    {
 			    	BasicBlock* temp = llvm::BasicBlock::Create(*Context,"",bb2->getParent() ,bb2);
-					bb1->getTerminator()->setSuccessor(i,temp);
-					/* debug statements
-					errs() << "\nafter removal...\n";
-					bb1->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
-					errs() << "\nOutput...\n";
-					bb1->printAsOperand(errs(), false);
-					errs() << "\n";
-					bb2->printAsOperand(errs(), false);
-					errs() << "\n";
-					temp->printAsOperand(errs(), false);
-					errs() << "\n";
-					*/
+					bb1->getTerminator()->setSuccessor(j,temp);
 					IRBuilder<> IRB(temp); // Will insert the generated instructions BEFORE the first BB instruction	 
 					Value *loadAddr = IRB.CreateLoad(bbCounter);
 					Value *addAddr = IRB.CreateAdd(loadAddr, ConstantInt::get(Type::getInt32Ty(*Context), edge));
 					IRB.CreateStore(addAddr, bbCounter);
 					IRB.CreateBr(bb2); // sets new basic block to point to bb2
-
 
 			    }
 			}
@@ -739,8 +637,6 @@ namespace {
 
 	void addBBCounterToTop(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-		//errs() << "bbcounter added to block as 0: \n";
-    	//errs() << "\n";
 		int end = topo_loop_vector_nested.size()-1;
 		BasicBlock* firstBB = topo_loop_vector_nested[end];
 		IRBuilder<> IRB(firstBB->getFirstInsertionPt());
@@ -754,20 +650,10 @@ namespace {
     bool runOnBasicBlock(BasicBlock &BB) 
     {
  
-		// Value *loadAddr = IRB.CreateLoad(bbCounter);
-		// Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 1), loadAddr);
-		// IRB.CreateStore(addAddr, bbCounter);
-
-		// for(auto &I: BB)
-		//   errs() << I << "\n";
-
-		//something here not done yet
-		// errs() << "BasicBlock: " << BB.getName() << '\n';
 		IRBuilder<> IRB(BB.getFirstInsertionPt()); // Will insert the generated instructions BEFORE the first BB instruction
 		// //this is a place for globalvariable that we definded in the first part of program
 		// //previousBlockID, edgeCounter we need two index for two basic block b0->b1
 		// //to create edgeCounter we need edge indexes
-
 
 		Value* zeroIndex = Constant::getNullValue(IntegerType::getInt32Ty(*Context));//everything is in the class fo value
 
