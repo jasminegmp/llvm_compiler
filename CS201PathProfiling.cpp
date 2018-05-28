@@ -9,7 +9,6 @@
 #include <set>
 #include <stack>
 #include "llvm/IR/Dominators.h"
-#include <algorithm>
 
 using namespace llvm;
 using namespace std;
@@ -97,7 +96,7 @@ namespace {
 					 		
 					 		EdgeValueMap[make_pair(currentBB, successorBB)] = NumPathsMap[currentBB];
 					 		
-					 		successorBB->printAsOperand(errs(), false);
+					 		//successorBB->printAsOperand(errs(), false);
 					 		NumPathsMap[currentBB] = NumPathsMap[currentBB] + NumPathsMap[successorBB];
 					 		//errs() << EdgeValueMap<currentBB, successorBB>;
 				 		}
@@ -105,8 +104,8 @@ namespace {
 				 	}
 
 				}
-				errs() << "J:" << j << "\n";
-				errs() << "NumPathsMap: " << NumPathsMap[currentBB] << "\n";
+				//errs() << "J:" << j << "\n";
+				//errs() << "NumPathsMap: " << NumPathsMap[currentBB] << "\n";
 				/*
 				errs() << "\nprinting numpaths\n"; 
 				currentBB->printAsOperand(errs(), false);
@@ -186,20 +185,6 @@ namespace {
 
     } // END of topologicalOrdering
 
-    // This is just a helper function for now
-    void printLoopVector(std::vector<BasicBlock*> loop_vector)
-    {
-
-    	 // debug printing
-    	for (unsigned int i = 0; i < loop_vector.size(); i++)
-		{
-			BasicBlock* loopitem = loop_vector[i];
-			loopitem->printAsOperand(errs(), false);
-			errs() << ",";
-		}
-
-    }
-
     // This algorithm follows the algorithm provided by the powerpoint slides
     void loopAlgorithm(std::vector<std::pair<BasicBlock*, BasicBlock*>> &backedge_vector, std::vector<BasicBlock*> &loop_vector, int backedge_count)
     {
@@ -221,9 +206,9 @@ namespace {
 			BasicBlock * top_obj = stack.top();
 			stack.pop();
 
-			errs() << "Popped top element of the stack, BB:  ";
-			top_obj->printAsOperand(errs(), false);
-			errs() << "\n";
+			//errs() << "Popped top element of the stack, BB:  ";
+			//top_obj->printAsOperand(errs(), false);
+			//errs() << "\n";
 
 			// if not in loop vector, insert top obj into stack
 			// referred to this https://stackoverflow.com/questions/571394/how-to-find-out-if-an-item-is-present-in-a-stdvector
@@ -244,18 +229,18 @@ namespace {
 				BasicBlock* predecessor = *it;
 				//errs() << "predecessor BB:  ";
 				//predecessor->printAsOperand(errs(), false);
-				errs() << "\n";
+				//errs() << "\n";
 
 				// if not in loop vector, insert pred into stack
 				// referred to this https://stackoverflow.com/questions/571394/how-to-find-out-if-an-item-is-present-in-a-stdvector
 				if (std::find(loop_vector.begin(), loop_vector.end(), predecessor) != loop_vector.end() )
 				{
-					errs() << "IN LOOP \n";
+					//errs() << "IN LOOP \n";
 				}
 					// do nothing
 				else if (predecessor != original_sink) // make sure also pred != original sink
 				{
-					errs() << "NOT IN LOOP \n";
+					//errs() << "NOT IN LOOP \n";
 					loop_vector.push_back(predecessor);
 					//push pred onto the stack
 					stack.push(predecessor);
@@ -278,8 +263,10 @@ namespace {
 		// Loops through basic blocks
 		for (Function::iterator bb = func.begin(), e=func.end(); bb != e; ++bb)
 		{
-			errs() << "BasicBlock " << bbNum <<"\n";
+			errs() << "BasicBlock:b" << bbNum << ", Label: ";
 			bb->printAsOperand(errs(), false);
+			errs() << "\n";
+
 			bb->dump();
 			bbNum += 1;
 			
@@ -295,9 +282,9 @@ namespace {
 			 	if (dom && (bb->getTerminator()->getNumSuccessors() > 0)) // is a back edge
 			 	{
 			 		//errs() << "Found a back edge!";
-			 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
+			 		//bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
 			 		//errs() << " dominates ";
-			 		bb->printAsOperand(errs(), false);
+			 		//bb->printAsOperand(errs(), false);
 			 		//errs() << "\n";
 
 			 		// now add back edge onto list of backedges
@@ -311,10 +298,10 @@ namespace {
 			 	}
 			 	else // is not a back edge
 			 	{
-			 		bb->printAsOperand(errs(), false);
-			 		errs() << " dominates ";
-			 		bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);		 		
-			 		errs() << "\n";
+			 		//bb->printAsOperand(errs(), false);
+			 		//errs() << " dominates ";
+			 		//bb->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);		 		
+			 		//errs() << "\n";
 
 			 	}
 
@@ -331,7 +318,7 @@ namespace {
 		BasicBlock* backedge_bb_1;
 		BasicBlock* backedge_bb_2;
 
-		errs() << "Innermost Loops:\n";
+		
 		for (unsigned int i = 0; i < loop_vector.size(); i++)
 		{
 			BasicBlock* loop_bb = loop_vector[i];
@@ -354,33 +341,7 @@ namespace {
 			//errs() << "Innermost loop found!" << "\n";
 			innerloop_vector.push_back(loop_vector);
 
-			
-			// debugging print statements
-			errs() << "{";
-			for (unsigned int i = 0; i < innerloop_vector.size(); i++)
-			{
-				errs() << "(";
-				for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
-				{
-					BasicBlock* loopitem = innerloop_vector[i][j];
-					loopitem->printAsOperand(errs(), false);
-					if (j != innerloop_vector[i].size()-1)
-					{
-						errs() << ",";
-					}
-				}
-				errs() << ")";
-
-				if (i != innerloop_vector.size()-1)
-				{
-					errs() << ",";
-				}
-
-			}
-			errs() << "}";
-			
 		}
-		errs() << "\n";
 
 	}
 
@@ -390,15 +351,13 @@ namespace {
 		std::pair <BasicBlock*, BasicBlock*> backedge_pair;
 		std::vector<std::pair<BasicBlock*, BasicBlock*>> backedge_vector; 
      	errs() << "Module: " << M.getName() << "\n";
-		errs() << "\n---------Starting BasicBlockDemo---------\n";
 		//////////// LOOP ALGORITHM START ///////////////////
 		// Loops through functions
 		for (Module::iterator func = M.begin(), y = M.end(); func != y; ++func)
 		{ 
 			std::vector<std::vector<BasicBlock*>> innerloop_vector;
 			std::vector<BasicBlock*> loop_vector;
-			
-			errs() << "\n---------Start of function ---------\n";
+
 			int bbNum = 0;
 			int backedge_count = 0;
 			int tot_backedge = 0;
@@ -427,25 +386,51 @@ namespace {
 				// if of the loop block items found, if it contains another back edge, toss it because it's not the inner one
 				// for each item in loop vector
 				findInnermostLoop(backedge_vector, loop_vector, innerloop_vector);
+
 			} // end of backedge list
-		if (tot_backedge > 0)
-		{
-			topologicalOrdering(innerloop_vector);
-			findEdgeProfiling(topo_loop_vector);
-			//std::vector<std::vector<BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
-			//std::vector <BasicBlock*>(loop_vector).swap(loop_vector);
-		}
-		else
-		{
-			errs() << "Edge values:\n";
-			errs() << "{ }";
-		}
-		//////////// EDGE LABEL END /////////////////////////////
-		errs() << "\n";
-		errs() << "//////////// FUNCTION END ///////////////\n\n";
-		//std::vector<std::pair<BasicBlock*, BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
-	}// end of function loop 
+
+			errs() << "Innermost Loops:\n";
+			// debugging print statements
+			errs() << "{";
+			for (unsigned int i = 0; i < innerloop_vector.size(); i++)
+			{
+				errs() << "(";
+				for (unsigned int j = 0; j < innerloop_vector[i].size(); j++)
+				{
+					BasicBlock* loopitem = innerloop_vector[i][j];
+					loopitem->printAsOperand(errs(), false);
+					
+					if (j != innerloop_vector[i].size()-1)
+					{
+						errs() << ",";
+					}
+				}
+				errs() << ")";
+
+				if (i != innerloop_vector.size()-1)
+				{
+					errs() << ",";
+				}
+
+				}
+			errs() << "}\n";
+
+			if (tot_backedge > 0)
+			{
+				topologicalOrdering(innerloop_vector);
+				findEdgeProfiling(topo_loop_vector);
+				//std::vector<std::vector<BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
+				//std::vector <BasicBlock*>(loop_vector).swap(loop_vector);
+			}
+			else
+			{
+				errs() << "Edge values:\n";
+				errs() << "{}";
+			}
+			errs() << "\n";
+		}// end of function loop 
 	
+
 
 	//////////// EDGE START /////////////////////////////
 
@@ -507,7 +492,7 @@ namespace {
 	{
 		totalNumPaths = totNumPath[l];
 	}
-	errs() << "TOTAL PATHS:" << totalNumPaths << "\n";
+	//errs() << "TOTAL PATHS:" << totalNumPaths << "\n";
 
 	if (totalNumPaths > 1)
 	{
@@ -585,78 +570,28 @@ namespace {
  	  	}
  		FuncNameToEdges[F.getName()] = edges;
 
-		//std::vector<std::pair<BasicBlock*, BasicBlock*>>(innerloop_vector).swap(innerloop_vector);
-
-
- 		//$$$$$$$$///////////////////////////////////////////////////////////////////////////////////////////////////
-		// Initialize a global array of counts
-		//done as pathCounter
-
-		// Insert instrumentation code in the top of the loop's BB to initialize a global BBCounter = 0.
-		
-
-
-		/*addBBCounterToTop(topo_loop_vector);
-		insertBB(EdgeValueMap,F);
-
-
-		//insertBBEnd(topo_loop_vector);
-		addPathCounterToEnd(topo_loop_vector);
-		addBBCounterToEnd(topo_loop_vector);// this resets the BBcounter back to 0
-*/
-		// Insert instrumentation BB in every edge that contains a BBCounter and the weight to add to BBCounter.
-				
-
-		//Insert instrumentation code at the end of the loop to index BBCounter in the global array of counts.
- 		
- 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			
-		errs() << "\n";
- 		for(auto &BB: F) 
- 		{
-        	BB.printAsOperand(errs(), false);
-    	}
-    	errs() << "\n";
-
-
-
-
-	    if(!(F.getName().equals("function_1")) && (!(F.getName().equals("main"))))
-		{
-			errs() << "here to clear\n";
-			int x = 0;
-			for(auto &BB: F) 
- 			{
- 				if (x == 0)
- 				{
-					//clearBBCounter(BB);
-				}
-			}
-			x += 1;
-		}
     	//for each item in loop, go from top to end, finding 
     	if(!(F.getName().equals("main")))
     	{
-    		errs() << "got here to.\n";
-    		temp(topo_loop_vector, EdgeValueMap, F);
+    		insertInstrumentationCode(topo_loop_vector, EdgeValueMap, F);
     	}
     	
-
+    	errs() << "Output of profiled program:\n\n"; 
  		for(auto &BB: F) 
  		{
 
         //  statement BEFORE calling runOnBasicBlock
         	if(F.getName().equals("main") && isa<ReturnInst>(BB.getTerminator()))
-        	{ // major hack?
-          		//addFinalPrintf_edge(BB);
-          		//addFinalPrintf(BB, Context, bbCounter, BasicBlockPrintfFormatStr, printf_func);
+        	{
+        		addFinalPrintfEdge(BB);
+          		
           		if (totalNumPaths > 1)
           		{
-          			addFinalPrintf_paths(BB, Context, pathCounter, printf_func);
+          			addFinalPrintfPaths(BB, Context, pathCounter, printf_func);
           		}
           		else
           		{
-          			addFinalPrintf_paths(BB, Context, pathCounterSingle, printf_func);
+          			addFinalPrintfPaths(BB, Context, pathCounterSingle, printf_func);
           		}
 
         	}
@@ -665,14 +600,12 @@ namespace {
         	
     	}
  
-		errs() << "\n";
-		errs() << "//////////// FUNCTION END ///////////////\n\n";
 
       return true; // since runOnBasicBlock has modified the program
     }
      //-------------------------
 
-    void temp (std::vector<std::vector<BasicBlock*>> &topo_loop_vector, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
+    void insertInstrumentationCode (std::vector<std::vector<BasicBlock*>> &topo_loop_vector, std::map<std::pair<BasicBlock*,BasicBlock*>,int> &EdgeValueMap, Function &F)
     {
     	//for (unsigned int j = 0; j < topo_loop_vector.size(); j++)
 		//{
@@ -704,7 +637,7 @@ namespace {
 
 
 
-			int tempSize = topo_loop_vector_nested.size()-1;
+			//int tempSize = topo_loop_vector_nested.size()-1;
 			/*
 	    	errs() << "\n";
 	    	errs() << "end added:\n";
@@ -748,7 +681,7 @@ namespace {
 			Instruction* ptr_arrayidx = GetElementPtrInst::Create(pathCounter, ptr_arrayidx_indices, "arrayidx", endBB->getTerminator());
 */
 
-			Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),0),loadAddr);
+			//Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),0),loadAddr);
 			ConstantInt* initvalue = ConstantInt::get(*Context, APInt(32, StringRef("0"), 10));
 			std::vector<Value*> gepIndices(2);
 			gepIndices[0] = initvalue;
@@ -770,7 +703,7 @@ namespace {
 
 	void addPathCounterToEndSingle(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-		errs() << "got to addBBCounterToEnd\n";
+		//errs() << "got to addBBCounterToEnd\n";
 		//topo_loop_vector_nested[0]->printAsOperand(errs(), false);
 		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
 		//Value *loadAddr = IRB.CreateLoad(bbCounter);
@@ -778,7 +711,7 @@ namespace {
 		//Value *loadAddr_2 = IRB.CreateLoad(bbCounter);
 		Value *addAddr = IRB.CreateAdd(loadAddr, ConstantInt::get(Type::getInt32Ty(*Context), 1));
 		IRB.CreateStore(addAddr, pathCounterSingle);
-		errs() << "\n";
+		//errs() << "\n";
 
 
 	}
@@ -786,13 +719,13 @@ namespace {
 	void addBBCounterToEnd(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
 
-		errs() << "\n";
+		//errs() << "\n";
 		//topo_loop_vector_nested[0]->printAsOperand(errs(), false);
 		IRBuilder<> IRB(topo_loop_vector_nested[0]->getTerminator());
 		//Value *loadAddr = IRB.CreateLoad(bbCounter);
 		Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 0),ConstantInt::get(Type::getInt32Ty(*Context), 0));
 		IRB.CreateStore(addAddr, bbCounter);
-		errs() << "\n";
+		//errs() << "\n";
 
 	}
 
@@ -805,12 +738,12 @@ namespace {
 
 			int edge = iter->second;
 
-			errs() << "\nnew temp\n";
+			//errs() << "\nnew temp\n";
 			
 			for (unsigned i = 0, e = bb1->getTerminator()->getNumSuccessors(); i != e; ++i)
 			{
-				errs() << "\nFound successors...\n";
-				bb1->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
+				//errs() << "\nFound successors...\n";
+				//bb1->getTerminator()->getSuccessor(i)->printAsOperand(errs(), false);
 
 			    if (bb1->getTerminator()->getSuccessor(i) == bb2) 
 			    {
@@ -839,18 +772,10 @@ namespace {
 		}
 	}
 
-	void clearBBCounter(BasicBlock &BB)
-	{
-		IRBuilder<> IRB(BB.getFirstInsertionPt());
-		Value *loadAddr = IRB.CreateLoad(pathCounterSingle);
-		Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 0), ConstantInt::get(Type::getInt32Ty(*Context), 0));
-		IRB.CreateStore(addAddr, pathCounterSingle);
-	}
-
 	void addBBCounterToTop(std::vector<BasicBlock*> &topo_loop_vector_nested)
 	{
-		errs() << "bbcounter added to block as 0: \n";
-    	errs() << "\n";
+		//errs() << "bbcounter added to block as 0: \n";
+    	//errs() << "\n";
 		int end = topo_loop_vector_nested.size()-1;
 		BasicBlock* firstBB = topo_loop_vector_nested[end];
 		IRBuilder<> IRB(firstBB->getFirstInsertionPt());
@@ -864,51 +789,50 @@ namespace {
     bool runOnBasicBlock(BasicBlock &BB) 
     {
  
-      // Value *loadAddr = IRB.CreateLoad(bbCounter);
-      // Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 1), loadAddr);
-      // IRB.CreateStore(addAddr, bbCounter);
- 
-      // for(auto &I: BB)
-      //   errs() << I << "\n";
+		// Value *loadAddr = IRB.CreateLoad(bbCounter);
+		// Value *addAddr = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context), 1), loadAddr);
+		// IRB.CreateStore(addAddr, bbCounter);
 
-    	//something here not done yet
-    	// errs() << "BasicBlock: " << BB.getName() << '\n';
-    	IRBuilder<> IRB(BB.getFirstInsertionPt()); // Will insert the generated instructions BEFORE the first BB instruction
-    	// //this is a place for globalvariable that we definded in the first part of program
-    	// //previousBlockID, edgeCounter we need two index for two basic block b0->b1
-    	// //to create edgeCounter we need edge indexes
+		// for(auto &I: BB)
+		//   errs() << I << "\n";
+
+		//something here not done yet
+		// errs() << "BasicBlock: " << BB.getName() << '\n';
+		IRBuilder<> IRB(BB.getFirstInsertionPt()); // Will insert the generated instructions BEFORE the first BB instruction
+		// //this is a place for globalvariable that we definded in the first part of program
+		// //previousBlockID, edgeCounter we need two index for two basic block b0->b1
+		// //to create edgeCounter we need edge indexes
 
 
-      Value* zeroIndex = Constant::getNullValue(IntegerType::getInt32Ty(*Context));//everything is in the class fo value
+		Value* zeroIndex = Constant::getNullValue(IntegerType::getInt32Ty(*Context));//everything is in the class fo value
 
-      std::vector<Value*> edgeIndex;
-      edgeIndex.push_back(zeroIndex);
+		std::vector<Value*> edgeIndex;
+		edgeIndex.push_back(zeroIndex);
 
-      Value* indexFirst = IRB.CreateLoad(previousBlockID);
+		Value* indexFirst = IRB.CreateLoad(previousBlockID);
 
-      edgeIndex.push_back(indexFirst);
-      Value* indexSecond = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[BB.getParent()->getName()][BB.getName()]);
-    
-     
-      edgeIndex.push_back(indexSecond);
+		edgeIndex.push_back(indexFirst);
+		Value* indexSecond = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[BB.getParent()->getName()][BB.getName()]);
 
-	        
 
-      Value* edgeCountVal = IRB.CreateGEP(edgeCounter[BB.getParent()->getName()], edgeIndex);
-      Value* OldEdgeCountVal = IRB.CreateLoad(edgeCountVal);
-      Value *edgeAddCounter = IRB.CreateAdd(OldEdgeCountVal, ConstantInt::get(Type::getInt32Ty(*Context), 1));
-      IRB.CreateStore(edgeAddCounter, edgeCountVal);
+		edgeIndex.push_back(indexSecond);
 
-      IRBuilder<> builder(BB.getTerminator());
-      Value *blockID = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[BB.getParent()->getName()][BB.getName()]);
-      
 
-      builder.CreateStore(blockID, previousBlockID);
- 
-      return true;
+		Value* edgeCountVal = IRB.CreateGEP(edgeCounter[BB.getParent()->getName()], edgeIndex);
+		Value* OldEdgeCountVal = IRB.CreateLoad(edgeCountVal);
+		Value *edgeAddCounter = IRB.CreateAdd(OldEdgeCountVal, ConstantInt::get(Type::getInt32Ty(*Context), 1));
+		IRB.CreateStore(edgeAddCounter, edgeCountVal);
+
+		IRBuilder<> builder(BB.getTerminator());
+		Value *blockID = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[BB.getParent()->getName()][BB.getName()]);
+
+
+		builder.CreateStore(blockID, previousBlockID);
+
+		return true;
     }
     
-    void addFinalPrintf_edge(BasicBlock& BB)
+    void addFinalPrintfEdge(BasicBlock& BB)
     {
     	// map<string,GlobalVariable*> edgeCounter;  
     	// edgeCounter is a map from the function name(string) to the address(string)
@@ -919,117 +843,113 @@ namespace {
       	}
     }
 
-     void addFinalPrintf(BasicBlock& BB, LLVMContext *Context, GlobalVariable *bbCounter, GlobalVariable *var, Function *printf_func) 
-     {
-     	errs() << "Printing final blocks output\n";
-		IRBuilder<> builder(BB.getTerminator()); // Insert BEFORE the final statement
-		std::vector<Constant*> indices;
-		Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
-		indices.push_back(zero);
-		indices.push_back(zero);
-		Constant *var_ref = ConstantExpr::getGetElementPtr(var, indices);
+    void printEdgeCount(BasicBlock& BB, string funcName, set<pair<string, string>> edges, GlobalVariable* counter) 
+    {
+      	int i = 0;
+      	IRBuilder<> builder(BB.getTerminator());
 
-		Value *bbc = builder.CreateLoad(bbCounter);
-		CallInst *call = builder.CreateCall2(printf_func, var_ref, bbc);
-		call->setTailCall(false);
+		for(auto &edge: edges) 
+		{
+
+			const char *finalPrintString =  (edge.first + "->" + edge.second + ": %d\n").c_str();
+			Constant *edgelink = ConstantDataArray::getString(*Context, finalPrintString);
+
+			//BasicBlockPrintfFormatStr = new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, format_const, "BasicBlockPrintfFormatStr");
+			// printf_func = printf_prototype(*Context, &M);
+
+			GlobalVariable *var;
+			var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, edgelink, "EdgePrintStr");
+
+
+			std::vector<Constant*> indices;
+			Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
+			indices.push_back(zero);
+			indices.push_back(zero);
+			Constant *var_ref = ConstantExpr::getGetElementPtr(var, indices);
+
+
+
+			Constant *zeroIndex = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
+			std::vector<Constant*> edgeIndex;
+			edgeIndex.push_back(zeroIndex);
+
+			ConstantInt* indexFirst = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[funcName][edge.first]);
+			edgeIndex.push_back(indexFirst);
+
+			ConstantInt* indexSecond = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[funcName][edge.second]);
+			edgeIndex.push_back(indexSecond);
+
+			Constant* edgeCountVal = ConstantExpr::getGetElementPtr(counter, edgeIndex);
+
+			Value *edgeCount = builder.CreateLoad(edgeCountVal);
+			CallInst *call = builder.CreateCall2(printf_func, var_ref, edgeCount);
+			call->setTailCall(false);
+			i++;
+		}
     }
 
-     void addFinalPrintf_paths(BasicBlock& BB, LLVMContext *Context, GlobalVariable *pathCounter, Function *printf_func) 
+
+    // This function prints path profiling information
+     void addFinalPrintfPaths(BasicBlock& BB, LLVMContext *Context, GlobalVariable *pathCounter, Function *printf_func) 
      {
-     	
+		string output;
+		string pathCount;
 
-	    std::string a;
-	    a =  a + ": %d\n";
-	    const char *finalPrintString = a.c_str();
-	    Constant *format_const = ConstantDataArray::getString(*Context, finalPrintString);
-	    BasicBlockPrintfFormatStr = new GlobalVariable(*((BB.getParent())->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), 
-							   true, llvm::GlobalValue::PrivateLinkage, format_const, "BasicBlockPrintfFormatStr");
-
-	    //printf_func = printf_prototype(*Context, ((BB.getParent())->getParent()));
 	    if (totalNumPaths > 1)
 	    {
-		    IRBuilder<> IRB(BB.getTerminator());
-		    Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),0),ConstantInt::get(Type::getInt32Ty(*Context),0));
-		    std::vector<Value*> gepIndices(2);
-		    ConstantInt* initvalue = ConstantInt::get(*Context, APInt(32, StringRef("0"), 10));
-		    gepIndices[0] = initvalue;
-		    gepIndices[1] = idxValue;
-		    GetElementPtrInst* pcpointer = GetElementPtrInst::Create(pathCounter,gepIndices,"pcptr",BB.getTerminator());
-		    //load from array
-		    LoadInst* oldpc = new LoadInst(pcpointer,"oldpc",BB.getTerminator());
+	    	for (int i = 0; i < totalNumPaths; i++)
+	    	{
+		    	pathCount = to_string(i);
+		    	output = "path" + pathCount + ":" + "%d\n";
+		    	const char *finalPrintString =  output.c_str();
+		    	Constant *pathConst = ConstantDataArray::getString(*Context, finalPrintString);
+		    	GlobalVariable *var;
+		        var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, pathConst, "PathStr");
 
-		    std::vector<Constant*> indices;
-		    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
-		    indices.push_back(zero);
-		    indices.push_back(zero);
-		    Constant *var_ref = ConstantExpr::getGetElementPtr(BasicBlockPrintfFormatStr, indices);
-		    CallInst *call = IRB.CreateCall2(printf_func, var_ref, oldpc);
-	    	call->setTailCall(false);
+		        // $$$$$$$$$$$$$$$$$$$$$$$$$$$$
+			    IRBuilder<> IRB(BB.getTerminator());
+			    Value* idxValue = IRB.CreateAdd(ConstantInt::get(Type::getInt32Ty(*Context),i),ConstantInt::get(Type::getInt32Ty(*Context),0));
+			    std::vector<Value*> gepIndices(2);
+			    ConstantInt* initvalue = ConstantInt::get(*Context, APInt(32, StringRef("0"), 10));
+			    gepIndices[0] = initvalue;
+			    gepIndices[1] = idxValue;
+			    GetElementPtrInst* pcpointer = GetElementPtrInst::Create(pathCounter,gepIndices,"pcptr",BB.getTerminator());
+			    LoadInst* oldpc = new LoadInst(pcpointer,"oldpc",BB.getTerminator());
+			    // $$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+			    std::vector<Constant*> indices;
+			    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
+			    indices.push_back(zero);
+			    indices.push_back(zero);
+			    Constant *var_ref = ConstantExpr::getGetElementPtr(var, indices);
+			    
+			    CallInst *call = IRB.CreateCall2(printf_func, var_ref, oldpc);
+		    	call->setTailCall(false);
+	    	}
+
     	}
     	else
     	{
+    		pathCount = to_string(0);
+    		output = "path" + pathCount + ":" + "%d\n";
+			const char *finalPrintString =  output.c_str();
+	    	Constant *pathConst = ConstantDataArray::getString(*Context, finalPrintString);
+	    	GlobalVariable *var;
+	        var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, pathConst, "PathStr");
+
 			IRBuilder<> builder(BB.getTerminator()); // Insert BEFORE the final statement
 			std::vector<Constant*> indices;
 			Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
 			indices.push_back(zero);
 			indices.push_back(zero);
-			Constant *var_ref = ConstantExpr::getGetElementPtr(BasicBlockPrintfFormatStr, indices);
+			Constant *var_ref = ConstantExpr::getGetElementPtr(var, indices);
 
 			Value *bbc = builder.CreateLoad(pathCounter);
 			CallInst *call = builder.CreateCall2(printf_func, var_ref, bbc);
 			call->setTailCall(false);
     	}
-
-
-
-
     }
 
-
-    void printEdgeCount(BasicBlock& BB, string funcName, set<pair<string, string>> edges, GlobalVariable* counter) {
-
-      	int i = 0;
-      	IRBuilder<> builder(BB.getTerminator());
-
-      	for(auto &edge: edges) {
-        
-
-	      	const char *finalPrintString =  (edge.first + "->" + edge.second + ": %d\n").c_str();
-	        Constant *edgelink = ConstantDataArray::getString(*Context, finalPrintString);
-
-	     //BasicBlockPrintfFormatStr = new GlobalVariable(M, llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, format_const, "BasicBlockPrintfFormatStr");
-      	// printf_func = printf_prototype(*Context, &M);
-
-	        GlobalVariable *var;
-	        var = new GlobalVariable(*(BB.getParent()->getParent()), llvm::ArrayType::get(llvm::IntegerType::get(*Context, 8), strlen(finalPrintString)+1), true, llvm::GlobalValue::PrivateLinkage, edgelink, "EdgePrintStr");
-	     
-
-	        std::vector<Constant*> indices;
-	        Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
-	        indices.push_back(zero);
-	        indices.push_back(zero);
-	        Constant *var_ref = ConstantExpr::getGetElementPtr(var, indices);
-
-
-	        
-	        Constant *zeroIndex = Constant::getNullValue(IntegerType::getInt32Ty(*Context));
-	        std::vector<Constant*> edgeIndex;
-	        edgeIndex.push_back(zeroIndex);
-
-	        ConstantInt* indexFirst = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[funcName][edge.first]);
-	        edgeIndex.push_back(indexFirst);
-
-	        ConstantInt* indexSecond = ConstantInt::get(Type::getInt32Ty(*Context), FuncNameToBlockNumber[funcName][edge.second]);
-	        edgeIndex.push_back(indexSecond);
-
-	        Constant* edgeCountVal = ConstantExpr::getGetElementPtr(counter, edgeIndex);
-
-	        Value *edgeCount = builder.CreateLoad(edgeCountVal);
-	        CallInst *call = builder.CreateCall2(printf_func, var_ref, edgeCount);
-	        call->setTailCall(false);
-	        i++;
-      }
-    }
  
 };
 }
